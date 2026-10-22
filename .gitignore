@@ -1,0 +1,8 @@
+# .gitignore 파일 생성 및 Visual Studio / 빌드 폴더 제외 설정 입력
+@"
+.vs/
+bin/
+obj/
+*.user
+*.suo
+"@ | Out-File -Encoding utf8 .gitignore
