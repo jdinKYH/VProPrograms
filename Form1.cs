@@ -84,7 +84,55 @@ namespace VproManageBlack02
             //cogDisplayOut.Location = new System.Drawing.Point(1500, 700); // (가로, 세로)
             //cogDisplayOut.Size = new System.Drawing.Size(100, 100);
             //cogDisplayOut.Dock = DockStyle.Fill;
-            //this.Controls.Add(cogDisplayOut);            
+            //this.Controls.Add(cogDisplayOut);
+
+            // 261028@Claude [2단계 2-1] 종료 시 VisionPro 자원 해제
+            this.FormClosing += Form1_FormClosing;
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [2단계 2-1] 폼 종료 시 Job Manager와 카메라(FrameGrabber) 해제
+        /// 해제하지 않으면 종료 후에도 프로세스가 남거나 카메라가 잡혀 있을 수 있다.
+        /// </summary>
+        private void Form1_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            shutdownJobManager(jobManager);
+            jobManager = null;
+
+            try
+            {
+                // 프로그램 종료 직전이므로 AllowRecovery = false
+                CogFrameGrabbers frameGrabbers = new CogFrameGrabbers();
+                foreach (ICogFrameGrabber frameGrabber in frameGrabbers)
+                {
+                    frameGrabber.Disconnect(false);
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("FrameGrabber 해제 실패", ex);
+            }
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [2단계 2-1, 2-2] Job Manager 정리 (null이면 아무것도 하지 않음)
+        /// </summary>
+        private void shutdownJobManager(CogJobManager manager)
+        {
+            if (manager == null)
+            {
+                return;
+            }
+            try
+            {
+                manager.Shutdown();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("Job Manager Shutdown 실패", ex);
+            }
         }
 
 
@@ -110,6 +158,8 @@ namespace VproManageBlack02
             }
             catch (Exception ex)
             {
+                // 261028@Claude [2단계 2-8] 로그 기록
+                AppLogger.Error("VPP 파일 선택/로드 오류", ex);
                 MessageBox.Show("Error loading job file: " + ex.Message, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
 
             }
@@ -117,52 +167,40 @@ namespace VproManageBlack02
 
 
         /// <summary>
-        ///  "QuickBuilder응용 프로그램"을 지정된 경로에서 읽어온다.
-        ///  "QuickBuilder응용 프로그램" 으로 저장 된 Job이다. 
+        /// 261028@Claude [2단계 2-2, 2-3] VPP 로드 개선
+        /// - 새 VPP를 지역 변수에 먼저 읽고, 필요한 툴을 모두 이름으로 확인한 뒤에만 필드에 반영한다.
+        /// - 필수 툴이 하나라도 없으면 새로 읽은 것을 정리하고 기존 상태를 그대로 유지한다. (일부만 초기화된 상태 방지)
+        /// - 교체에 성공하면 이전 Job Manager를 Shutdown 한다.
+        /// - 하위 ToolGroup은 번호(Tools[2]) 대신 이름("CogToolGroup1")으로 찾고, 없을 때만 기존 방식(Tools[2])을 사용한다.
         /// </summary>
-        /// <param name="vppPath"></param>
         private void LoadVisionProJob(string vppPath)
         {
-            // 
+            Cursor previousCursor = Cursor.Current;
+            Cursor.Current = Cursors.WaitCursor;
+
+            CogJobManager newJobManager = null;
+            bool isApplied = false;
+
             try
             {
                 // "QuickBuilder응용 프로그램" 으로 저장 된 Job으로 저장한 것을 읽어온다.
-                // 작업 JOb 파일은 QuickBuilder에서 하단에 "CongJob1"으로 표시되는 것을 말한다.
                 object loadedobject = CogSerializer.LoadObjectFromFile(vppPath);
 
+                CogToolGroup newToolGroup;
                 if (loadedobject is CogJobManager manager)
                 {
-                    jobManager = manager;
-
-                    int jobCount = (int)jobManager.JobCount;    // 1023_QB_CBoxNoSwitch.vpp의 JobCount는 1이다.
-
-                    // Job 내부에 있는 ToolGroup 및 이미지 스위치 툴블록 가져오기
-                    // (구조에 따라 Job 인덱스나 이름은 현장 환경에 맞게 수정 필요)
-                    //[0] { Cognex.VisionPro.QuickBuild.Implementation.Internal.CogInputImageTool}
-                    //[1] { Cognex.VisionPro.CogAcqFifoTool}
-                    //[2] { Cognex.VisionPro.ToolGroup.CogToolGroup} <= 이것을 ToolGroup을 사용
-                    myToolGroup = jobManager.Job(0).VisionTool as CogToolGroup;
-
-                    // CogAcqFifoTool acqFifoTool = myToolGroup.Tools[1] as CogAcqFifoTool;
-
-
-                    // 아래 2. 툴그룹 내부에서 스위치 툴블록 찾아오기 에서 진행
-                    //if (myToolGroup != null)
-                    //{
-                    //    tbImageSource = myToolGroup.Tools["tbImageSource"] as CogToolBlock;
-                    //}
+                    newJobManager = manager;
+                    newToolGroup = manager.JobCount > 0 ? manager.Job(0).VisionTool as CogToolGroup : null;
                 }
                 else if (loadedobject is CogJob job)
                 {
                     // Case B: 파일이 단일 Job 구조인 경우
-                    jobManager = null; // 필요시 관리 객체 조정
-                    myToolGroup = job.VisionTool as CogToolGroup;
+                    newToolGroup = job.VisionTool as CogToolGroup;
                 }
                 else if (loadedobject is CogToolGroup toolGroup)
                 {
-                    // Case C: 파일이 툴그룹(ToolGroup) 자체로 저장된 경우 (이 경우가 매우 많습니다!)
-                    jobManager = null;
-                    myToolGroup = toolGroup;
+                    // Case C: 파일이 툴그룹(ToolGroup) 자체로 저장된 경우
+                    newToolGroup = toolGroup;
                 }
                 else
                 {
@@ -170,62 +208,232 @@ namespace VproManageBlack02
                     return;
                 }
 
-                // 2. 툴그룹 내부에서 툴블록 찾아오기
-                if (myToolGroup != null)
+                // 필요한 툴을 모두 확인 (없는 툴은 목록으로 모아서 한 번에 알린다)
+                List<string> missingTools = new List<string>();
+
+                CogToolGroup newToolGroupGroup = null;
+                CogAcqFifoTool newAcqFifoTool = null;
+                CogIPOneImageTool newIPOneImageTool = null;
+                CogToolBlock newLocate = null;
+                CogToolBlock newLeftSide = null;
+                CogToolBlock newRightSide = null;
+
+                if (newToolGroup == null)
                 {
-                    //[0] { Cognex.VisionPro.QuickBuild.Implementation.Internal.CogInputImageTool}
-                    //[1] { Cognex.VisionPro.CogAcqFifoTool}
-                    //[2] { Cognex.VisionPro.ToolGroup.CogToolGroup} <= 이것을 ToolGroup을 사용
-                    //      [0] {Cognex.VisionPro.ImageProcessing.CogIPOneImageTool}
-                    //      [1] { Cognex.VisionPro.ToolBlock.CogToolBlock}
-                    //      [2] { Cognex.VisionPro.ToolBlock.CogToolBlock}
-                    //      [3] { Cognex.VisionPro.ToolBlock.CogToolBlock}
-                    myToolGroupGroup = myToolGroup.Tools[2] as CogToolGroup;
+                    missingTools.Add("Job의 ToolGroup");
+                }
+                else
+                {
+                    newAcqFifoTool = findTool(newToolGroup, "CogAcqFifoTool1") as CogAcqFifoTool;
 
-                    // ====================================================================
-                    // 261023@jdin 사용하지 않는다. 
-                    // 툴그룹 내부에서 스위치 툴블록 찾아오기
-                    //tbImageSource = myToolGroup.Tools["tbImageSource"] as CogToolBlock;
-                    //if (tbImageSource == null)
-                    //{
-                    //    MessageBox.Show("툴그룹 내부에 'tbImageSource' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
-                    //}
-                    // ====================================================================
+                    newToolGroupGroup = findTool(newToolGroup, "CogToolGroup1") as CogToolGroup;
+                    if (newToolGroupGroup == null && newToolGroup.Tools.Count > 2)
+                    {
+                        newToolGroupGroup = newToolGroup.Tools[2] as CogToolGroup;   // 기존 방식
+                    }
+                }
 
-                    // Tool 그룹 안에서 Tool 존재 확인
-                    acqFifoTool = myToolGroup.Tools["CogAcqFifoTool1"] as CogAcqFifoTool;
-                    if (acqFifoTool == null)
-                    {
-                        MessageBox.Show("툴그룹 내부에 'CogAcqFifoTool1' 툴이 존재하지 않습니다. 이름을 확인해주세요.");
-                    }
-                    IPOneImageTool = myToolGroupGroup.Tools["CogIPOneImageTool1"] as CogIPOneImageTool;
-                    if (IPOneImageTool == null)
-                    {
-                        MessageBox.Show("툴그룹 내부에 'CogIPOneImageTool1' 툴이 존재하지 않습니다. 이름을 확인해주세요.");
-                    }
-                    locate = myToolGroupGroup.Tools["Locate"] as CogToolBlock;
-                    if (locate == null)
-                    {
-                        MessageBox.Show("툴그룹 내부에 'Locate' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
-                    }
-                    leftSide = myToolGroupGroup.Tools["LEFTside"] as CogToolBlock;
-                    if (leftSide == null)
-                    {
-                        MessageBox.Show("툴그룹 내부에 'LEFTside' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
-                    }
-                    rightSide = myToolGroupGroup.Tools["RIGHTside"] as CogToolBlock;
-                    if (rightSide == null)
-                    {
-                        MessageBox.Show("툴그룹 내부에 'RIGHTside' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
-                    }
+                if (newToolGroup != null && newToolGroupGroup == null)
+                {
+                    missingTools.Add("CogToolGroup1 (하위 ToolGroup)");
+                }
+                else if (newToolGroupGroup != null)
+                {
+                    newIPOneImageTool = findTool(newToolGroupGroup, "CogIPOneImageTool1") as CogIPOneImageTool;
+                    newLocate = findTool(newToolGroupGroup, "Locate") as CogToolBlock;
+                    newLeftSide = findTool(newToolGroupGroup, "LEFTside") as CogToolBlock;
+                    newRightSide = findTool(newToolGroupGroup, "RIGHTside") as CogToolBlock;
 
+                    if (newIPOneImageTool == null) missingTools.Add("CogIPOneImageTool1");
+                    if (newLocate == null) missingTools.Add("Locate");
+                    if (newLeftSide == null) missingTools.Add("LEFTside");
+                    if (newRightSide == null) missingTools.Add("RIGHTside");
+                }
+
+                if (missingTools.Count > 0)
+                {
+                    string message = "다음 툴을 찾을 수 없어 VPP를 적용하지 않았습니다. (기존 설정 유지)\n- "
+                                     + string.Join("\n- ", missingTools);
+                    AppLogger.Info("VPP 로드 거부: " + vppPath + " / 없는 툴: " + string.Join(", ", missingTools));
+                    MessageBox.Show(message, "VPP 로드 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                // 모든 필수 툴 확인 완료 → 한 번에 교체
+                CogJobManager oldJobManager = jobManager;
+
+                jobManager = newJobManager;
+                myToolGroup = newToolGroup;
+                myToolGroupGroup = newToolGroupGroup;
+                acqFifoTool = newAcqFifoTool;
+                IPOneImageTool = newIPOneImageTool;
+                locate = newLocate;
+                leftSide = newLeftSide;
+                rightSide = newRightSide;
+                isApplied = true;
+
+                // 이전 Job Manager 정리
+                if (oldJobManager != null && !ReferenceEquals(oldJobManager, newJobManager))
+                {
+                    shutdownJobManager(oldJobManager);
+                }
+
+                AppLogger.Info("VPP 로드 완료: " + vppPath);
+
+                // 카메라 툴은 파일 모드만 사용할 때는 없어도 되므로 경고만 한다.
+                if (acqFifoTool == null)
+                {
+                    MessageBox.Show("툴그룹 내부에 'CogAcqFifoTool1' 툴이 존재하지 않습니다. 파일 모드만 사용할 수 있습니다.");
                 }
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"VPP 파일 로드 실패: {ex.Message}");
+                AppLogger.Error("VPP 파일 로드 실패: " + vppPath, ex);
+                MessageBox.Show($"VPP 파일 로드 실패: {AppLogger.GetFullMessage(ex)}");
+            }
+            finally
+            {
+                // 적용하지 않은 새 Job Manager는 정리한다.
+                if (!isApplied)
+                {
+                    shutdownJobManager(newJobManager);
+                }
+                Cursor.Current = previousCursor;
             }
         }
+
+
+        /// <summary>
+        /// 261028@Claude [2단계 2-3] ToolGroup 안에서 이름으로 툴 찾기 (없으면 null)
+        /// </summary>
+        private static ICogTool findTool(CogToolGroup group, string toolName)
+        {
+            foreach (ICogTool tool in group.Tools)
+            {
+                if (tool != null && tool.Name == toolName)
+                {
+                    return tool;
+                }
+            }
+            return null;
+        }
+
+
+        // ===================================================================================================
+        // 261028@Claude [2단계] 아래는 변경 전 LoadVisionProJob (주석 처리)
+        // - 툴을 못 찾아도 필드를 일부만 바꾼 채 계속 진행함 (2-3)
+        // - 다시 로드할 때 이전 Job Manager를 정리하지 않음 (2-2)
+        // ===================================================================================================
+        ///// <summary>
+        /////  "QuickBuilder응용 프로그램"을 지정된 경로에서 읽어온다.
+        /////  "QuickBuilder응용 프로그램" 으로 저장 된 Job이다. 
+        ///// </summary>
+        ///// <param name="vppPath"></param>
+        //private void LoadVisionProJob(string vppPath)
+        //{
+        //    // 
+        //    try
+        //    {
+        //        // "QuickBuilder응용 프로그램" 으로 저장 된 Job으로 저장한 것을 읽어온다.
+        //        // 작업 JOb 파일은 QuickBuilder에서 하단에 "CongJob1"으로 표시되는 것을 말한다.
+        //        object loadedobject = CogSerializer.LoadObjectFromFile(vppPath);
+
+        //        if (loadedobject is CogJobManager manager)
+        //        {
+        //            jobManager = manager;
+
+        //            int jobCount = (int)jobManager.JobCount;    // 1023_QB_CBoxNoSwitch.vpp의 JobCount는 1이다.
+
+        //            // Job 내부에 있는 ToolGroup 및 이미지 스위치 툴블록 가져오기
+        //            // (구조에 따라 Job 인덱스나 이름은 현장 환경에 맞게 수정 필요)
+        //            //[0] { Cognex.VisionPro.QuickBuild.Implementation.Internal.CogInputImageTool}
+        //            //[1] { Cognex.VisionPro.CogAcqFifoTool}
+        //            //[2] { Cognex.VisionPro.ToolGroup.CogToolGroup} <= 이것을 ToolGroup을 사용
+        //            myToolGroup = jobManager.Job(0).VisionTool as CogToolGroup;
+
+        //            // CogAcqFifoTool acqFifoTool = myToolGroup.Tools[1] as CogAcqFifoTool;
+
+
+        //            // 아래 2. 툴그룹 내부에서 스위치 툴블록 찾아오기 에서 진행
+        //            //if (myToolGroup != null)
+        //            //{
+        //            //    tbImageSource = myToolGroup.Tools["tbImageSource"] as CogToolBlock;
+        //            //}
+        //        }
+        //        else if (loadedobject is CogJob job)
+        //        {
+        //            // Case B: 파일이 단일 Job 구조인 경우
+        //            jobManager = null; // 필요시 관리 객체 조정
+        //            myToolGroup = job.VisionTool as CogToolGroup;
+        //        }
+        //        else if (loadedobject is CogToolGroup toolGroup)
+        //        {
+        //            // Case C: 파일이 툴그룹(ToolGroup) 자체로 저장된 경우 (이 경우가 매우 많습니다!)
+        //            jobManager = null;
+        //            myToolGroup = toolGroup;
+        //        }
+        //        else
+        //        {
+        //            MessageBox.Show($"지원하지 않는 VPP 파일 형식입니다. 타입: {loadedobject?.GetType().Name}");
+        //            return;
+        //        }
+
+        //        // 2. 툴그룹 내부에서 툴블록 찾아오기
+        //        if (myToolGroup != null)
+        //        {
+        //            //[0] { Cognex.VisionPro.QuickBuild.Implementation.Internal.CogInputImageTool}
+        //            //[1] { Cognex.VisionPro.CogAcqFifoTool}
+        //            //[2] { Cognex.VisionPro.ToolGroup.CogToolGroup} <= 이것을 ToolGroup을 사용
+        //            //      [0] {Cognex.VisionPro.ImageProcessing.CogIPOneImageTool}
+        //            //      [1] { Cognex.VisionPro.ToolBlock.CogToolBlock}
+        //            //      [2] { Cognex.VisionPro.ToolBlock.CogToolBlock}
+        //            //      [3] { Cognex.VisionPro.ToolBlock.CogToolBlock}
+        //            myToolGroupGroup = myToolGroup.Tools[2] as CogToolGroup;
+
+        //            // ====================================================================
+        //            // 261023@jdin 사용하지 않는다. 
+        //            // 툴그룹 내부에서 스위치 툴블록 찾아오기
+        //            //tbImageSource = myToolGroup.Tools["tbImageSource"] as CogToolBlock;
+        //            //if (tbImageSource == null)
+        //            //{
+        //            //    MessageBox.Show("툴그룹 내부에 'tbImageSource' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            //}
+        //            // ====================================================================
+
+        //            // Tool 그룹 안에서 Tool 존재 확인
+        //            acqFifoTool = myToolGroup.Tools["CogAcqFifoTool1"] as CogAcqFifoTool;
+        //            if (acqFifoTool == null)
+        //            {
+        //                MessageBox.Show("툴그룹 내부에 'CogAcqFifoTool1' 툴이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            }
+        //            IPOneImageTool = myToolGroupGroup.Tools["CogIPOneImageTool1"] as CogIPOneImageTool;
+        //            if (IPOneImageTool == null)
+        //            {
+        //                MessageBox.Show("툴그룹 내부에 'CogIPOneImageTool1' 툴이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            }
+        //            locate = myToolGroupGroup.Tools["Locate"] as CogToolBlock;
+        //            if (locate == null)
+        //            {
+        //                MessageBox.Show("툴그룹 내부에 'Locate' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            }
+        //            leftSide = myToolGroupGroup.Tools["LEFTside"] as CogToolBlock;
+        //            if (leftSide == null)
+        //            {
+        //                MessageBox.Show("툴그룹 내부에 'LEFTside' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            }
+        //            rightSide = myToolGroupGroup.Tools["RIGHTside"] as CogToolBlock;
+        //            if (rightSide == null)
+        //            {
+        //                MessageBox.Show("툴그룹 내부에 'RIGHTside' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
+        //            }
+
+        //        }
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        MessageBox.Show($"VPP 파일 로드 실패: {ex.Message}");
+        //    }
+        //}
 
 
 
@@ -479,6 +687,8 @@ namespace VproManageBlack02
             }
             catch (Exception ex)
             {
+                // 261028@Claude [2단계 2-8] 로그 기록
+                AppLogger.Error("검사 실행 오류 (FileMode=" + isOfflineFileMode + ")", ex);
                 MessageBox.Show($"검사 실행 오류 : {ex.Message}");
             }
 
@@ -753,6 +963,8 @@ namespace VproManageBlack02
                     }
                     catch (Exception ex)
                     {
+                        // 261028@Claude [2단계 2-8] 로그 기록
+                        AppLogger.Error("이미지 파일 로드 오류: " + openFileDialog.FileName, ex);
                         MessageBox.Show($"이미지 처리 중 에러 발생: {ex.Message}");
                     }
                 }
