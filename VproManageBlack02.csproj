@@ -12,6 +12,8 @@
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
+    <!-- 261028@Claude [4단계 5-5] 고배율 모니터에서 흐리게 보이지 않도록 DPI 인식 -->
+    <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <!-- 261028@Claude [2단계 4-1] x64로 통일 (기존: x86) -->
@@ -224,6 +226,9 @@
     <!-- 261028@Claude [3단계] 검사 설정, 검사 결과·저장 -->
     <Compile Include="InspectionSettings.cs" />
     <Compile Include="InspectionResult.cs" />
+    <!-- 261028@Claude [4단계] VisionPro 처리 분리, 폴더 일괄 검사·회귀 테스트 -->
+    <Compile Include="VisionService.cs" />
+    <Compile Include="BatchInspection.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Form1.resx">
       <DependentUpon>Form1.cs</DependentUpon>
@@ -249,6 +254,8 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
+    <!-- 261028@Claude [4단계 5-5] DPI 인식 매니페스트 -->
+    <None Include="app.manifest" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

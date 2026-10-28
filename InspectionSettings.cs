@@ -65,6 +65,9 @@ namespace VproManageBlack02
         /// <summary>NG 이미지를 Results\NG\yyyyMMdd\ 에 저장</summary>
         public bool SaveNgImage = true;
 
+        /// <summary>261028@Claude [4단계] 회귀 테스트(expected.csv)에서 측정값 비교 허용 오차</summary>
+        public double RegressionValueTolerance = 0.01;
+
 
         [XmlIgnore]
         public static string FilePath
