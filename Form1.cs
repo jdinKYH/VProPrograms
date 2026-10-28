@@ -58,9 +58,22 @@ namespace VproManageBlack02
 
         string jobFilePath;
 
+        // 261028@Claude [3단계] 검사 설정, 판정·상태 표시, 결과 저장용
+        private InspectionSettings settings;
+        private string loadedVppPath = "";          // 로드에 성공한 VPP (jobFilePath는 선택만 하고 실패할 수도 있음)
+        private string currentImageSource = "";     // 이번 검사 이미지 출처 (파일 경로 또는 "Camera")
+        private ICogImage currentInputImage;        // 이번 검사 입력 이미지 (NG 이미지 저장용)
+        private double? lastAlignScore;             // 이번 검사의 PMAlign 점수
+        private long lastElapsedMs;
+        private int okCount;
+        private int ngCount;
+
         public Form1()
         {
             InitializeComponent();
+
+            // 261028@Claude [3단계 3-2] 검사 설정 읽기 (InspectionSettings.xml)
+            settings = InspectionSettings.Load();
 
 
             // 코드로 CogRecordDisplay 생성 및 설정
@@ -88,6 +101,26 @@ namespace VproManageBlack02
 
             // 261028@Claude [2단계 2-1] 종료 시 VisionPro 자원 해제
             this.FormClosing += Form1_FormClosing;
+
+            // 261028@Claude [3단계] 화면이 뜬 뒤 마지막 VPP 자동 로드
+            this.Shown += Form1_Shown;
+            clearInspectResults();
+            updateStatusDisplay();
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계] 마지막으로 로드에 성공한 VPP를 자동으로 로드
+        /// (예전 버전은 생성자에서 VPP 선택 창을 띄웠음 → 화면이 뜬 뒤 저장된 경로로 자동 로드)
+        /// </summary>
+        private void Form1_Shown(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(settings.LastVppPath) && System.IO.File.Exists(settings.LastVppPath))
+            {
+                AppLogger.Info("마지막 VPP 자동 로드: " + settings.LastVppPath);
+                LoadVisionProJob(settings.LastVppPath);
+            }
+            updateStatusDisplay();
         }
 
 
@@ -149,6 +182,11 @@ namespace VproManageBlack02
                 {
                     openFileDialog.Filter = "VisionPro Job Files (*.vpp)|*.vpp";
                     openFileDialog.Title = "Select a VisionPro Job File";
+                    // 261028@Claude [3단계] 마지막 VPP 폴더에서 열기
+                    if (!string.IsNullOrEmpty(settings.LastVppPath))
+                    {
+                        openFileDialog.InitialDirectory = System.IO.Path.GetDirectoryName(settings.LastVppPath);
+                    }
                     if (openFileDialog.ShowDialog() == DialogResult.OK)
                     {
                         jobFilePath = openFileDialog.FileName;
@@ -279,6 +317,12 @@ namespace VproManageBlack02
                 }
 
                 AppLogger.Info("VPP 로드 완료: " + vppPath);
+
+                // 261028@Claude [3단계] 마지막 VPP 경로 저장(다음 실행 시 자동 로드), 상태 표시 갱신
+                loadedVppPath = vppPath;
+                settings.LastVppPath = vppPath;
+                settings.Save();
+                updateStatusDisplay();
 
                 // 카메라 툴은 파일 모드만 사용할 때는 없어도 되므로 경고만 한다.
                 if (acqFifoTool == null)
@@ -444,6 +488,9 @@ namespace VproManageBlack02
         /// <returns></returns>
         private bool isCheckLocate()
         {
+            // 261028@Claude [3단계] 이번 검사의 PMAlign 점수 (CSV 기록용)
+            lastAlignScore = null;
+
             // 261028@Claude [1단계 2-4] locate, pmAlignTool, Results의 null 및 실행 에러 확인
             if (locate == null)
             {
@@ -475,8 +522,11 @@ namespace VproManageBlack02
             else
             {
                 double pmScore = pmAlignTool.Results[0].Score;
-                // 0~1 사이의 값으로, 1에 가까울수록 정렬이 잘 된 것으로 판단                
-                if (pmScore < 0.6)
+                lastAlignScore = pmScore;
+                // 0~1 사이의 값으로, 1에 가까울수록 정렬이 잘 된 것으로 판단
+                // 261028@Claude [3단계 3-2] 기준 점수를 설정 파일(PMAlignMinScore, 기본 0.6)에서 읽음
+                // if (pmScore < 0.6)
+                if (pmScore < settings.PMAlignMinScore)
                 {
                     textBox5.Text = pmScore.ToString("F2") + " - FAIL";
                     return false; // 검사실행을 하지 않음
@@ -506,6 +556,9 @@ namespace VproManageBlack02
                 // return;
                 return false;
             }
+
+            // 261028@Claude [3단계] NG 이미지 저장용으로 입력 이미지 보관 (출처는 LoadImageFromFile에서 기록)
+            currentInputImage = fileImage;
 
             IPOneImageTool.InputImage = fileImage;
             ICogImage cogImage3 = (ICogImage)IPOneImageTool.InputImage;
@@ -552,6 +605,10 @@ namespace VproManageBlack02
                 MessageBox.Show("OutputImage가 null입니다. 이미지가 들어오지 않았습니다.");
                 return false;
             }
+
+            // 261028@Claude [3단계] NG 이미지 저장용으로 입력 이미지와 출처 보관
+            currentInputImage = acqFifoTool.OutputImage;
+            currentImageSource = "Camera";
 
             // 261027@jdin TEMP
             ICogImage cogImage5 = (ICogImage)acqFifoTool.OutputImage;
@@ -621,6 +678,9 @@ namespace VproManageBlack02
         /// </summary>
         private void button1_Click(object sender, EventArgs e)
         {
+            // 261028@Claude [3단계 3-2] 메모장으로 바꾼 설정을 검사마다 다시 읽어 반영
+            settings = InspectionSettings.Load();
+
             // 261028@Claude [1단계 1-5] jobManager가 없으면(VPP가 CogJob/ToolGroup 형식) 파일 모드까지 막히던 문제.
             // 모드별로 필요한 객체만 확인하도록 변경
             //if (jobManager == null || myToolGroup == null)
@@ -652,9 +712,14 @@ namespace VproManageBlack02
             // UI의 체크박스 상태 등으로 모드 판별 (true: 파일 검사, false: 라이브 카메라)
             bool isOfflineFileMode = chkFileMode.Checked;
 
-            // 261028@Claude [1단계 1-2, 1-4] 모드별 실행 → 위치 확인 → 결과 표시를 하나의 try 안에서 처리.
-            // 이미지 취득·로드가 실패하거나 위치 확인이 실패하면 즉시 중단하고,
-            // 측정 결과는 모든 단계가 성공했을 때만 읽는다. (이전 검사값 표시·처리되지 않은 예외 방지)
+            // 261028@Claude [3단계 3-1, 3-7, 5-2] 검사 1회 = 실행 → 위치 확인 → 측정 판정 → OK/NG 표시 → 결과 저장
+            // - 위치 확인에 실패해도 NG로 판정해서 카운트·CSV·NG 이미지에 남긴다.
+            // - 이미지 로드 취소·카메라 취득 실패는 검사가 아니므로 판정·저장하지 않는다.
+            InspectionResult result = new InspectionResult();
+            result.IsOfflineFileMode = isOfflineFileMode;
+            System.Diagnostics.Stopwatch stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            currentInputImage = null;
+
             try
             {
                 // [1] 파일 모드 / [2] 라이브 카메라 모드 실행
@@ -667,23 +732,39 @@ namespace VproManageBlack02
                     }
                     return;
                 }
+                result.ImageSource = currentImageSource;
 
-                bool isLocate = isCheckLocate();
-                if (!isLocate)
+                // 위치 확인
+                result.IsLocateOk = isCheckLocate();
+                result.AlignText = textBox5.Text;
+                result.AlignScore = lastAlignScore;
+
+                if (result.IsLocateOk)
                 {
-                    MessageBox.Show("위치 확인에 실패했습니다.");
-                    return;
+                    // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
+                    // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
+                    ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
+                    cogRecordDisplay2.Record = resultRecord;
+                    // 화면 크기에 맞게 이미지 자동 조절 (Fit)
+                    cogRecordDisplay2.Fit();
+
+                    // [3-7] LEFTside/RIGHTside 측정 그래픽 표시
+                    showMeasureGraphics();
                 }
 
-                // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
-                // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
-                ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
-                cogRecordDisplay2.Record = resultRecord;
-                // 화면 크기에 맞게 이미지 자동 조절 (Fit)
-                cogRecordDisplay2.Fit();
+                // [3-1, 3-4] 측정값 읽기와 공차 판정 (위치 확인 실패 시 "-" 표시)
+                evaluateMeasures(result, result.IsLocateOk);
 
-                // Results
-                getInspectResults();
+                stopwatch.Stop();
+                result.ElapsedMs = stopwatch.ElapsedMilliseconds;
+
+                // OK/NG 표시, 카운트, 결과 저장
+                completeInspection(result);
+
+                if (!result.IsLocateOk)
+                {
+                    MessageBox.Show("위치 확인에 실패했습니다.");
+                }
             }
             catch (Exception ex)
             {
@@ -691,6 +772,50 @@ namespace VproManageBlack02
                 AppLogger.Error("검사 실행 오류 (FileMode=" + isOfflineFileMode + ")", ex);
                 MessageBox.Show($"검사 실행 오류 : {ex.Message}");
             }
+
+            // ===================================================================================================
+            // 261028@Claude [3단계] 아래는 1단계 코드 (주석 처리)
+            // - OK/NG 판정, 결과 저장, 측정 그래픽 표시가 없었음
+            // ===================================================================================================
+            //// 261028@Claude [1단계 1-2, 1-4] 모드별 실행 → 위치 확인 → 결과 표시를 하나의 try 안에서 처리.
+            //// 이미지 취득·로드가 실패하거나 위치 확인이 실패하면 즉시 중단하고,
+            //// 측정 결과는 모든 단계가 성공했을 때만 읽는다. (이전 검사값 표시·처리되지 않은 예외 방지)
+            //try
+            //{
+            //    // [1] 파일 모드 / [2] 라이브 카메라 모드 실행
+            //    bool isRunOk = isOfflineFileMode ? offlineFileMode() : liveCameraMode();
+            //    if (!isRunOk)
+            //    {
+            //        if (!isOfflineFileMode)
+            //        {
+            //            MessageBox.Show("카메라 취득에 실패했습니다.");
+            //        }
+            //        return;
+            //    }
+
+            //    bool isLocate = isCheckLocate();
+            //    if (!isLocate)
+            //    {
+            //        MessageBox.Show("위치 확인에 실패했습니다.");
+            //        return;
+            //    }
+
+            //    // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
+            //    // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
+            //    ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
+            //    cogRecordDisplay2.Record = resultRecord;
+            //    // 화면 크기에 맞게 이미지 자동 조절 (Fit)
+            //    cogRecordDisplay2.Fit();
+
+            //    // Results
+            //    getInspectResults();
+            //}
+            //catch (Exception ex)
+            //{
+            //    // 261028@Claude [2단계 2-8] 로그 기록
+            //    AppLogger.Error("검사 실행 오류 (FileMode=" + isOfflineFileMode + ")", ex);
+            //    MessageBox.Show($"검사 실행 오류 : {ex.Message}");
+            //}
 
             // ===================================================================================================
             // 261028@Claude [1단계] 아래는 변경 전 코드 (주석 처리)
@@ -818,85 +943,340 @@ namespace VproManageBlack02
             textBox3.Text = "";
             textBox4.Text = "";
             textBox5.Text = "";
+
+            // 261028@Claude [3단계 3-1] 판정 표시와 NG 강조 색 초기화
+            lblJudge.Text = "-";
+            lblJudge.BackColor = SystemColors.Control;
+            lblJudge.ForeColor = SystemColors.ControlText;
+            foreach (TextBox box in new[] { textBox1, textBox2, textBox3, textBox4 })
+            {
+                box.BackColor = SystemColors.Control;
+            }
         }
 
 
         /// <summary>
-        /// 검사 후 측저 결과를 읽어와서 TextBox에 표시
-        /// </summary>        
-        private void getInspectResults()
-        {
-            // 261028@Claude [1단계 1-3] 측정 ToolBlock의 RunStatus를 확인한 뒤에만 Outputs를 읽는다.
-            // 실패한 툴의 Outputs에는 이전 검사값이 남아 있으므로 그대로 표시하면 안 된다.
-            showSideResult(leftSide, textBox1, textBox2);
-            showSideResult(rightSide, textBox3, textBox4);
-
-            //double leftDist1 = 0.0;
-            //double leftDist2 = 0.0;
-            //double rightDist1 = 0.0;
-            //double rightDist2 = 0.0;
-
-            //leftDist1 = (double)leftSide.Outputs[0].Value;
-            //leftDist2 = (double)leftSide.Outputs[1].Value;
-
-            //rightDist1 = (double)rightSide.Outputs[0].Value;
-            //rightDist2 = (double)rightSide.Outputs[1].Value;
-
-            //textBox1.Text = leftDist1.ToString("F2");
-            //textBox2.Text = leftDist2.ToString("F2");
-            //textBox3.Text = rightDist1.ToString("F2");
-            //textBox4.Text = rightDist2.ToString("F2");
-        }
-
-
-        /// <summary>
-        /// 261028@Claude [1단계 1-3] 측정 ToolBlock(LEFTside/RIGHTside) 하나의 결과를 TextBox 2개에 표시
-        /// 툴이 없거나 Accept가 아니면 측정값 대신 NG 상태를 표시한다.
+        /// 261028@Claude [3단계 3-1, 3-4] 측정값 4개를 읽어 공차로 판정하고 TextBox에 표시
+        /// - 출력은 설정의 OutputName(이름)으로 먼저 찾고, 없으면 OutputIndex(번호, 기존 방식)를 사용
+        /// - 측정 ToolBlock이 Accept가 아니면 값 대신 NG(상태) 표시 (1단계 1-3 유지)
+        /// - 공차를 벗어난 값은 TextBox를 빨간색으로 표시
+        /// - readValues가 false(위치 확인 실패)면 값을 읽지 않고 "-" 표시
         /// </summary>
-        private void showSideResult(CogToolBlock sideBlock, TextBox txtDist1, TextBox txtDist2)
+        private void evaluateMeasures(InspectionResult result, bool readValues)
         {
+            result.Measures.Add(evaluateMeasure(leftSide, settings.LeftDist1, readValues));
+            result.Measures.Add(evaluateMeasure(leftSide, settings.LeftDist2, readValues));
+            result.Measures.Add(evaluateMeasure(rightSide, settings.RightDist1, readValues));
+            result.Measures.Add(evaluateMeasure(rightSide, settings.RightDist2, readValues));
+
+            TextBox[] boxes = { textBox1, textBox2, textBox3, textBox4 };
+            for (int i = 0; i < boxes.Length; i++)
+            {
+                boxes[i].Text = result.Measures[i].Text;
+                boxes[i].BackColor = (readValues && !result.Measures[i].IsOk) ? Color.LightPink : SystemColors.Control;
+            }
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-1] 측정값 하나 판정
+        /// </summary>
+        private MeasureResult evaluateMeasure(CogToolBlock sideBlock, MeasureSpec spec, bool readValues)
+        {
+            MeasureResult measure = new MeasureResult();
+            measure.Name = spec.DisplayName;
+
+            if (!readValues)
+            {
+                measure.Text = "-";
+                return measure;
+            }
             if (sideBlock == null)
             {
-                txtDist1.Text = "N/A";
-                txtDist2.Text = "N/A";
-                return;
+                measure.Text = "N/A";
+                return measure;
             }
 
-            CogToolResultConstants result = sideBlock.RunStatus.Result;
-            if (result != CogToolResultConstants.Accept)
+            CogToolResultConstants status = sideBlock.RunStatus.Result;
+            if (status != CogToolResultConstants.Accept)
             {
-                txtDist1.Text = "NG(" + result + ")";
-                txtDist2.Text = "NG(" + result + ")";
-                return;
+                measure.Text = "NG(" + status + ")";
+                return measure;
             }
 
-            txtDist1.Text = formatOutputValue(sideBlock, 0);
-            txtDist2.Text = formatOutputValue(sideBlock, 1);
+            double? value = readOutputValue(sideBlock, spec);
+            if (!value.HasValue)
+            {
+                measure.Text = "N/A";
+                return measure;
+            }
+
+            measure.Value = value;
+            measure.Text = value.Value.ToString("F2");
+            measure.IsOk = !spec.UseTolerance || (value.Value >= spec.Min && value.Value <= spec.Max);
+            return measure;
         }
 
 
         /// <summary>
-        /// 261028@Claude [1단계 1-4] ToolBlock 출력값을 안전하게 문자열로 변환 (없거나 숫자가 아니면 N/A)
+        /// 261028@Claude [3단계 3-4] ToolBlock 출력값 읽기: 이름 우선, 없으면 번호. 숫자가 아니면 null
         /// </summary>
-        private string formatOutputValue(CogToolBlock block, int index)
+        private double? readOutputValue(CogToolBlock block, MeasureSpec spec)
         {
-            if (index >= block.Outputs.Count)
+            object value = null;
+            bool isFound = false;
+
+            if (!string.IsNullOrEmpty(spec.OutputName))
             {
-                return "N/A";
+                foreach (CogToolBlockTerminal terminal in block.Outputs)
+                {
+                    if (terminal.Name == spec.OutputName)
+                    {
+                        value = terminal.Value;
+                        isFound = true;
+                        break;
+                    }
+                }
+                if (!isFound)
+                {
+                    AppLogger.Info($"{block.Name} 출력 '{spec.OutputName}'을(를) 찾지 못해 번호 {spec.OutputIndex}를 사용");
+                }
             }
 
-            object value = block.Outputs[index].Value;
+            if (!isFound)
+            {
+                if (spec.OutputIndex < 0 || spec.OutputIndex >= block.Outputs.Count)
+                {
+                    return null;
+                }
+                value = block.Outputs[spec.OutputIndex].Value;
+            }
+
             if (value is IConvertible)
             {
                 try
                 {
-                    return Convert.ToDouble(value).ToString("F2");
+                    return Convert.ToDouble(value);
                 }
                 catch (FormatException) { }
                 catch (InvalidCastException) { }
             }
-            return "N/A";
+            return null;
         }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-7] LEFTside/RIGHTside의 측정 그래픽을 결과 화면(Display2)에 겹쳐 표시
+        /// 그래픽 표시에 실패해도 검사 결과에는 영향이 없도록 로그만 남긴다.
+        /// </summary>
+        private void showMeasureGraphics()
+        {
+            try
+            {
+                if (leftSide != null)
+                {
+                    addRecordGraphics(leftSide.CreateLastRunRecord());
+                }
+                if (rightSide != null)
+                {
+                    addRecordGraphics(rightSide.CreateLastRunRecord());
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("측정 그래픽 표시 실패", ex);
+            }
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-7] 레코드(하위 레코드 포함)에 들어 있는 그래픽을 Display2에 추가
+        /// </summary>
+        private void addRecordGraphics(ICogRecord record)
+        {
+            if (record == null)
+            {
+                return;
+            }
+
+            if (record.Content is CogGraphicCollection graphics)
+            {
+                foreach (ICogGraphic graphic in graphics)
+                {
+                    cogRecordDisplay2.StaticGraphics.Add(graphic, "Measure");
+                }
+            }
+            else if (record.Content is ICogGraphic graphic)
+            {
+                cogRecordDisplay2.StaticGraphics.Add(graphic, "Measure");
+            }
+
+            if (record.SubRecords != null)
+            {
+                for (int i = 0; i < record.SubRecords.Count; i++)
+                {
+                    addRecordGraphics(record.SubRecords[i]);
+                }
+            }
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-1, 5-2] 검사 마무리: OK/NG 표시, 카운트, CSV·NG 이미지 저장, 상태 표시
+        /// </summary>
+        private void completeInspection(InspectionResult result)
+        {
+            showJudge(result.IsOk);
+
+            if (result.IsOk)
+            {
+                okCount++;
+            }
+            else
+            {
+                ngCount++;
+            }
+            lastElapsedMs = result.ElapsedMs;
+
+            if (settings.SaveResultCsv)
+            {
+                ResultRecorder.AppendCsv(result);
+            }
+            if (!result.IsOk && settings.SaveNgImage)
+            {
+                ResultRecorder.SaveNgImage(currentInputImage, result.Time);
+            }
+
+            updateStatusDisplay();
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-1] 최종 OK/NG를 크게 표시
+        /// </summary>
+        private void showJudge(bool isOk)
+        {
+            lblJudge.Text = isOk ? "OK" : "NG";
+            lblJudge.BackColor = isOk ? Color.LimeGreen : Color.Red;
+            lblJudge.ForeColor = Color.White;
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 5-2] 제목줄과 상태 표시줄 갱신 (VPP, 모드, 검사 시간, OK/NG 카운트)
+        /// </summary>
+        private void updateStatusDisplay()
+        {
+            string vppName = string.IsNullOrEmpty(loadedVppPath) ? "(VPP 없음)" : System.IO.Path.GetFileName(loadedVppPath);
+            string mode = chkFileMode.Checked ? "파일" : "카메라";
+
+            this.Text = "VproManageBlack02 - " + vppName;
+            lblStatus.Text = $"VPP: {vppName}    |    모드: {mode}    |    검사 시간: {lastElapsedMs} ms    |    OK: {okCount}    NG: {ngCount}";
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [3단계 3-2] 설정 파일(InspectionSettings.xml)을 메모장으로 열기
+        /// 저장 후 다음 검사부터 반영된다.
+        /// </summary>
+        private void btnSettings_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                if (!System.IO.File.Exists(InspectionSettings.FilePath))
+                {
+                    settings.Save();
+                }
+                System.Diagnostics.Process.Start("notepad.exe", "\"" + InspectionSettings.FilePath + "\"");
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("설정 파일 열기 실패", ex);
+                MessageBox.Show($"설정 파일을 열 수 없습니다: {ex.Message}\n{InspectionSettings.FilePath}");
+            }
+        }
+
+
+        // ===================================================================================================
+        // 261028@Claude [3단계] 아래는 1단계 결과 표시 코드 (주석 처리)
+        // - 공차 판정, 이름 기반 출력 읽기가 없었음 → evaluateMeasures / evaluateMeasure / readOutputValue로 대체
+        // ===================================================================================================
+        ///// <summary>
+        ///// 검사 후 측저 결과를 읽어와서 TextBox에 표시
+        ///// </summary>        
+        //private void getInspectResults()
+        //{
+        //    // 261028@Claude [1단계 1-3] 측정 ToolBlock의 RunStatus를 확인한 뒤에만 Outputs를 읽는다.
+        //    // 실패한 툴의 Outputs에는 이전 검사값이 남아 있으므로 그대로 표시하면 안 된다.
+        //    showSideResult(leftSide, textBox1, textBox2);
+        //    showSideResult(rightSide, textBox3, textBox4);
+
+        //    //double leftDist1 = 0.0;
+        //    //double leftDist2 = 0.0;
+        //    //double rightDist1 = 0.0;
+        //    //double rightDist2 = 0.0;
+
+        //    //leftDist1 = (double)leftSide.Outputs[0].Value;
+        //    //leftDist2 = (double)leftSide.Outputs[1].Value;
+
+        //    //rightDist1 = (double)rightSide.Outputs[0].Value;
+        //    //rightDist2 = (double)rightSide.Outputs[1].Value;
+
+        //    //textBox1.Text = leftDist1.ToString("F2");
+        //    //textBox2.Text = leftDist2.ToString("F2");
+        //    //textBox3.Text = rightDist1.ToString("F2");
+        //    //textBox4.Text = rightDist2.ToString("F2");
+        //}
+
+
+        ///// <summary>
+        ///// 261028@Claude [1단계 1-3] 측정 ToolBlock(LEFTside/RIGHTside) 하나의 결과를 TextBox 2개에 표시
+        ///// 툴이 없거나 Accept가 아니면 측정값 대신 NG 상태를 표시한다.
+        ///// </summary>
+        //private void showSideResult(CogToolBlock sideBlock, TextBox txtDist1, TextBox txtDist2)
+        //{
+        //    if (sideBlock == null)
+        //    {
+        //        txtDist1.Text = "N/A";
+        //        txtDist2.Text = "N/A";
+        //        return;
+        //    }
+
+        //    CogToolResultConstants result = sideBlock.RunStatus.Result;
+        //    if (result != CogToolResultConstants.Accept)
+        //    {
+        //        txtDist1.Text = "NG(" + result + ")";
+        //        txtDist2.Text = "NG(" + result + ")";
+        //        return;
+        //    }
+
+        //    txtDist1.Text = formatOutputValue(sideBlock, 0);
+        //    txtDist2.Text = formatOutputValue(sideBlock, 1);
+        //}
+
+
+        ///// <summary>
+        ///// 261028@Claude [1단계 1-4] ToolBlock 출력값을 안전하게 문자열로 변환 (없거나 숫자가 아니면 N/A)
+        ///// </summary>
+        //private string formatOutputValue(CogToolBlock block, int index)
+        //{
+        //    if (index >= block.Outputs.Count)
+        //    {
+        //        return "N/A";
+        //    }
+
+        //    object value = block.Outputs[index].Value;
+        //    if (value is IConvertible)
+        //    {
+        //        try
+        //        {
+        //            return Convert.ToDouble(value).ToString("F2");
+        //        }
+        //        catch (FormatException) { }
+        //        catch (InvalidCastException) { }
+        //    }
+        //    return "N/A";
+        //}
 
 
         /// <summary>
@@ -934,7 +1314,11 @@ namespace VproManageBlack02
                 // 다이얼로그 초기 설정
                 openFileDialog.Title = "비전 검사할 이미지 선택";
                 openFileDialog.Filter = "이미지 파일 (*.bmp;*.jpg;*.png)|*.bmp;*.jpg;*.png|모든 파일 (*.*)|*.*";
-                openFileDialog.InitialDirectory = @"D:\0_JDIN\JDIN_VisionProgram\jdinVPro\VPro\VproBlack";
+                // 261028@Claude [3단계] 마지막으로 이미지를 연 폴더에서 시작 (없으면 기존 경로)
+                // openFileDialog.InitialDirectory = @"D:\0_JDIN\JDIN_VisionProgram\jdinVPro\VPro\VproBlack";
+                openFileDialog.InitialDirectory = System.IO.Directory.Exists(settings.LastImageFolder)
+                    ? settings.LastImageFolder
+                    : @"D:\0_JDIN\JDIN_VisionProgram\jdinVPro\VPro\VproBlack";
 
                 // 2. 사용자가 파일을 선택하고 [열기]를 눌렀을 때
                 if (openFileDialog.ShowDialog() == DialogResult.OK)
@@ -942,6 +1326,11 @@ namespace VproManageBlack02
                     try
                     {
                         string selectedImagePath = openFileDialog.FileName;
+
+                        // 261028@Claude [3단계] 이미지 출처(CSV 기록용)와 마지막 폴더 저장
+                        currentImageSource = selectedImagePath;
+                        settings.LastImageFolder = System.IO.Path.GetDirectoryName(selectedImagePath);
+                        settings.Save();
 
                         // CogImageFileTool을 사용하면 파일 열기/닫기 및 독립된 이미지 객체 관리가 안전합니다.
                         using (CogImageFileTool fileTool = new CogImageFileTool())
@@ -976,8 +1365,8 @@ namespace VproManageBlack02
 
         private void chkFileMode_CheckedChanged(object sender, EventArgs e)
         {
-
-
+            // 261028@Claude [3단계 5-2] 모드가 바뀌면 상태 표시 갱신
+            updateStatusDisplay();
         }
 
         private void button1_Click_1(object sender, EventArgs e)

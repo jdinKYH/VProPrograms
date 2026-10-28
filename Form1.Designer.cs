@@ -43,6 +43,9 @@
             this.textBox5 = new System.Windows.Forms.TextBox();
             this.label7 = new System.Windows.Forms.Label();
             this.button1 = new System.Windows.Forms.Button();
+            this.lblJudge = new System.Windows.Forms.Label();
+            this.lblStatus = new System.Windows.Forms.Label();
+            this.btnSettings = new System.Windows.Forms.Button();
             this.SuspendLayout();
             // 
             // inspect
@@ -131,6 +134,7 @@
             this.textBox1.Size = new System.Drawing.Size(100, 21);
             this.textBox1.TabIndex = 8;
             this.textBox1.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.textBox1.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // textBox2
             // 
@@ -139,6 +143,7 @@
             this.textBox2.Size = new System.Drawing.Size(100, 21);
             this.textBox2.TabIndex = 9;
             this.textBox2.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.textBox2.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // textBox3
             // 
@@ -147,6 +152,7 @@
             this.textBox3.Size = new System.Drawing.Size(100, 21);
             this.textBox3.TabIndex = 10;
             this.textBox3.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.textBox3.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // textBox4
             // 
@@ -155,6 +161,7 @@
             this.textBox4.Size = new System.Drawing.Size(100, 21);
             this.textBox4.TabIndex = 11;
             this.textBox4.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.textBox4.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // textBox5
             // 
@@ -163,6 +170,7 @@
             this.textBox5.Size = new System.Drawing.Size(100, 21);
             this.textBox5.TabIndex = 13;
             this.textBox5.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
+            this.textBox5.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // label7
             // 
@@ -184,11 +192,45 @@
             this.button1.UseVisualStyleBackColor = true;
             this.button1.Click += new System.EventHandler(this.button1_Click_1);
             // 
+            // lblJudge  (261028@Claude [3단계 3-1] 최종 OK/NG 표시)
+            // 
+            this.lblJudge.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
+            this.lblJudge.Font = new System.Drawing.Font("굴림", 28F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblJudge.Location = new System.Drawing.Point(1454, 305);
+            this.lblJudge.Name = "lblJudge";
+            this.lblJudge.Size = new System.Drawing.Size(183, 70);
+            this.lblJudge.TabIndex = 15;
+            this.lblJudge.Text = "-";
+            this.lblJudge.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+            // 
+            // lblStatus  (261028@Claude [3단계 5-2] VPP, 모드, 검사 시간, OK/NG 카운트)
+            // 
+            this.lblStatus.AutoSize = true;
+            this.lblStatus.Font = new System.Drawing.Font("굴림", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblStatus.Location = new System.Drawing.Point(30, 870);
+            this.lblStatus.Name = "lblStatus";
+            this.lblStatus.Size = new System.Drawing.Size(0, 15);
+            this.lblStatus.TabIndex = 16;
+            // 
+            // btnSettings  (261028@Claude [3단계 3-2] 설정 파일 열기)
+            // 
+            this.btnSettings.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.btnSettings.Location = new System.Drawing.Point(1454, 795);
+            this.btnSettings.Name = "btnSettings";
+            this.btnSettings.Size = new System.Drawing.Size(183, 32);
+            this.btnSettings.TabIndex = 17;
+            this.btnSettings.Text = "Settings";
+            this.btnSettings.UseVisualStyleBackColor = true;
+            this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(1668, 903);
+            this.Controls.Add(this.btnSettings);
+            this.Controls.Add(this.lblStatus);
+            this.Controls.Add(this.lblJudge);
             this.Controls.Add(this.button1);
             this.Controls.Add(this.textBox5);
             this.Controls.Add(this.label7);
@@ -228,6 +270,10 @@
         private System.Windows.Forms.TextBox textBox5;
         private System.Windows.Forms.Label label7;
         private System.Windows.Forms.Button button1;
+        // 261028@Claude [3단계] 판정 표시, 상태 표시줄, 설정 버튼
+        private System.Windows.Forms.Label lblJudge;
+        private System.Windows.Forms.Label lblStatus;
+        private System.Windows.Forms.Button btnSettings;
     }
 }
 
