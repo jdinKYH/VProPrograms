@@ -235,12 +235,29 @@ namespace VproManageBlack02
         /// </summary>
         /// <returns></returns>
         private bool isCheckLocate()
-        {                   
+        {
+            // 261028@Claude [1단계 2-4] locate, pmAlignTool, Results의 null 및 실행 에러 확인
+            if (locate == null)
+            {
+                textBox5.Text = "NG - No Locate";
+                return false;
+            }
+            if (locate.RunStatus.Result == CogToolResultConstants.Error)
+            {
+                textBox5.Text = "NG - Locate Error";
+                return false;
+            }
+
             // PMAlignTool 실행 결과 확인
             pmAlignTool = locate.Tools["CogPMAlignTool1"] as CogPMAlignTool;
             // PMAlignTool의 결과 실패하면 결과 값이 없다. 즉 null이다.
             // 기준 Score 값보다 작게 나오는 것과 다르다.
             // 예외처리가 필요하다.
+            if (pmAlignTool == null || pmAlignTool.Results == null)
+            {
+                textBox5.Text = "NG - No PMAlign";
+                return false;
+            }
             int alignCount = pmAlignTool.Results.Count;
             if (alignCount == 0)
             {
@@ -267,8 +284,10 @@ namespace VproManageBlack02
 
         /// --- [1] 오프라인 파일 모드 ---
         /// 261028@jdin 오프라인 파일 모드를 분리함.
-        /// --- [1] 오프라인 파일 모드 ---         
-        private void offlineFileMode()
+        /// --- [1] 오프라인 파일 모드 ---
+        /// 261028@Claude [1단계 1-2] 이미지 로드 실패·취소를 호출부에 알리도록 bool 반환으로 변경
+        // private void offlineFileMode()
+        private bool offlineFileMode()
         {
             // --- [1] 오프라인 파일 모드 ---
             // 1. 파일에서 이미지 로드 (Cognex 파일 로더 또는 일반 이미지 로드 방식 활용)
@@ -276,7 +295,8 @@ namespace VproManageBlack02
             if (fileImage == null)
             {
                 MessageBox.Show("이미지 파일을 불러오지 못했습니다.");
-                return;
+                // return;
+                return false;
             }
 
             IPOneImageTool.InputImage = fileImage;
@@ -291,6 +311,8 @@ namespace VproManageBlack02
             ICogImage cogImage1 = (ICogImage)IPOneImageTool.OutputImage;
             cogRecordDisplay1.Image = cogImage1;
             cogRecordDisplay1.Fit();
+
+            return true;
         }
 
 
@@ -306,6 +328,9 @@ namespace VproManageBlack02
             
 
             // 2. 카메라 취득부터 검사까지 전체 잡 매니저 실행
+            // 261028@Claude [1단계 1-1] jobManager.Run()은 비동기라 결과를 너무 일찍 읽는 문제가 있었음.
+            // 동기 실행인 myToolGroup.Run()으로 통일 (Run이 끝난 뒤 결과를 읽으므로 이전 값 표시·동시 접근 없음)
+            // jobManager.Run();
             myToolGroup.Run();   // myToolGroup.Run();
 
             // 3. 카메라 취득 결과 확인
@@ -388,9 +413,17 @@ namespace VproManageBlack02
         /// </summary>
         private void button1_Click(object sender, EventArgs e)
         {
-            if (jobManager == null || myToolGroup == null)
+            // 261028@Claude [1단계 1-5] jobManager가 없으면(VPP가 CogJob/ToolGroup 형식) 파일 모드까지 막히던 문제.
+            // 모드별로 필요한 객체만 확인하도록 변경
+            //if (jobManager == null || myToolGroup == null)
+            //{
+            //    MessageBox.Show("비전 시스템이 초기화되지 않았습니다.");
+            //    return;
+            //}
+            string notReadyMessage = getNotReadyMessage(chkFileMode.Checked);
+            if (notReadyMessage != null)
             {
-                MessageBox.Show("비전 시스템이 초기화되지 않았습니다.");
+                MessageBox.Show(notReadyMessage);
                 return;
             }
 
@@ -411,114 +444,157 @@ namespace VproManageBlack02
             // UI의 체크박스 상태 등으로 모드 판별 (true: 파일 검사, false: 라이브 카메라)
             bool isOfflineFileMode = chkFileMode.Checked;
 
-            if (isOfflineFileMode)
+            // 261028@Claude [1단계 1-2, 1-4] 모드별 실행 → 위치 확인 → 결과 표시를 하나의 try 안에서 처리.
+            // 이미지 취득·로드가 실패하거나 위치 확인이 실패하면 즉시 중단하고,
+            // 측정 결과는 모든 단계가 성공했을 때만 읽는다. (이전 검사값 표시·처리되지 않은 예외 방지)
+            try
             {
-                try
+                // [1] 파일 모드 / [2] 라이브 카메라 모드 실행
+                bool isRunOk = isOfflineFileMode ? offlineFileMode() : liveCameraMode();
+                if (!isRunOk)
                 {
-                    offlineFileMode();
-
-                    bool isLocate = isCheckLocate();
-
-                    if (!isLocate)
-                    {
-                        MessageBox.Show("위치 확인에 실패했습니다.");
-                        return;
-                    }
-
-                    // 4. 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
-                    // ====================================================================================================
-                    // fixtureTool.CreateLastRunRecord().SubRecords[0]; => SubRecords[0]가 나와야 한다.
-                    // fixtureTool = (CogFixtureTool)locate.Tools["CogFixtureTool1"];
-                    // ICogRecord resultRecord = fixtureTool.CreateLastRunRecord().SubRecords[0];                
-                    // ====================================================================================================
-                    // 0 - CogIPOneImageTool1.InputImage
-                    // 1 - CogIPOneImageTool1.OutputImage
-                    // 2 - CogFixtureTool1.OutputImage
-                    // 4 - LEFTside.InputImage
-                    // 6 - RIGHTside.InputImage
-                    // resultRecords = myToolGroupGroup.CreateLastRunRecord().SubRecords; 위 리스트 참조할 것
-                    // 상위 myToolGroup과 하위 myToolGroupGroup이 다른 것을 주의할 것
-                    // ICogRecords resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
-
-                    ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
-                    cogRecordDisplay2.Record = resultRecord;
-                    // 5. 화면 크기에 맞게 이미지 자동 조절 (Fit)
-                    cogRecordDisplay2.Fit();
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"Tool Group 실행 오류 : {ex.Message}");
-                }
-            }
-            else
-            {   // --- [2] 라이브 카메라 모드 ---
-                try
-                {
-                    bool isCameraOk = liveCameraMode();
-
-                    if(!isCameraOk)
+                    if (!isOfflineFileMode)
                     {
                         MessageBox.Show("카메라 취득에 실패했습니다.");
-                        return;
                     }
-
-                    // CogAcqFifoTool acqFifoTool = myToolGroup.Tools[1] as CogAcqFifoTool;
-                    // CogAcqFifoTool acqFifoTool = myToolGroup.Tools["CogAcqFifoTool1"] as CogAcqFifoTool;
-
-
-                    // =======================================================================================
-                    // 261028@Jdin acqFifoTool 실행 테스트 
-                    // acqFifoTool.Run();
-                    //if (acqFifoTool.RunStatus.Result != CogToolResultConstants.Accept)
-                    //{
-                    //    MessageBox.Show("카메라 이미지 취득 실패");
-                    //    return;
-                    //}
-                    //else if(acqFifoTool.OutputImage == null)
-                    //{
-                    //    MessageBox.Show("OutputImage가 null입니다. 이미지가 들어오지 않았습니다.");
-                    //    return;
-                    //}
-                    // 
-                    //ICogImage cogImage9 = (ICogImage)acqFifoTool.OutputImage;
-                    //cogRecordDisplay1.Image = cogImage9;
-                    // 화면 크기에 맞게 이미지 자동 조절 (Fit)
-                    //cogRecordDisplay1.Fit();
-                    // =======================================================================================
-
-
-                    // --- [2] 라이브 카메라 모드 ---
-                    //ICogRecords resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
-                    //resultRecords.Clear();
-
-
-                    bool isLocate = isCheckLocate();
-
-                    if (!isLocate)
-                    {
-                        MessageBox.Show("위치 확인에 실패했습니다.");
-                        return;
-                    }
-
-                    // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
-                    // 0 - LastRun.Image Source.OutputImage,
-                    // 1 - LastRun.Locate.CogPMAlignTool1.InputImage,
-                    // 2 - Locate.CogPMAlignTool1.OutputImage
-                    // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
-                    ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
-                    cogRecordDisplay2.Record = resultRecord;
-
-                    // 5. 화면 크기에 맞게 이미지 자동 조절 (Fit)
-                    cogRecordDisplay2.Fit();
+                    return;
                 }
-                catch (Exception ex)
+
+                bool isLocate = isCheckLocate();
+                if (!isLocate)
                 {
-                    MessageBox.Show($"Job Manager 실행 오류 : {ex.Message}");
+                    MessageBox.Show("위치 확인에 실패했습니다.");
+                    return;
                 }
+
+                // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
+                // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
+                ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
+                cogRecordDisplay2.Record = resultRecord;
+                // 화면 크기에 맞게 이미지 자동 조절 (Fit)
+                cogRecordDisplay2.Fit();
+
+                // Results
+                getInspectResults();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"검사 실행 오류 : {ex.Message}");
             }
 
-            // Reults
-            getInspectResults();
+            // ===================================================================================================
+            // 261028@Claude [1단계] 아래는 변경 전 코드 (주석 처리)
+            // - 파일 로드 실패·취소 시에도 위치 확인과 결과 읽기가 계속 진행됨 (1-2)
+            // - getInspectResults()가 try 밖에서 항상 실행되어 예외 시 앱이 종료될 수 있음 (1-4)
+            // ===================================================================================================
+            //if (isOfflineFileMode)
+            //{
+            //    try
+            //    {
+            //        offlineFileMode();
+
+            //        bool isLocate = isCheckLocate();
+
+            //        if (!isLocate)
+            //        {
+            //            MessageBox.Show("위치 확인에 실패했습니다.");
+            //            return;
+            //        }
+
+            //        // 4. 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
+            //        // ====================================================================================================
+            //        // fixtureTool.CreateLastRunRecord().SubRecords[0]; => SubRecords[0]가 나와야 한다.
+            //        // fixtureTool = (CogFixtureTool)locate.Tools["CogFixtureTool1"];
+            //        // ICogRecord resultRecord = fixtureTool.CreateLastRunRecord().SubRecords[0];                
+            //        // ====================================================================================================
+            //        // 0 - CogIPOneImageTool1.InputImage
+            //        // 1 - CogIPOneImageTool1.OutputImage
+            //        // 2 - CogFixtureTool1.OutputImage
+            //        // 4 - LEFTside.InputImage
+            //        // 6 - RIGHTside.InputImage
+            //        // resultRecords = myToolGroupGroup.CreateLastRunRecord().SubRecords; 위 리스트 참조할 것
+            //        // 상위 myToolGroup과 하위 myToolGroupGroup이 다른 것을 주의할 것
+            //        // ICogRecords resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
+
+            //        ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
+            //        cogRecordDisplay2.Record = resultRecord;
+            //        // 5. 화면 크기에 맞게 이미지 자동 조절 (Fit)
+            //        cogRecordDisplay2.Fit();
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        MessageBox.Show($"Tool Group 실행 오류 : {ex.Message}");
+            //    }
+            //}
+            //else
+            //{   // --- [2] 라이브 카메라 모드 ---
+            //    try
+            //    {
+            //        bool isCameraOk = liveCameraMode();
+
+            //        if(!isCameraOk)
+            //        {
+            //            MessageBox.Show("카메라 취득에 실패했습니다.");
+            //            return;
+            //        }
+
+            //        // CogAcqFifoTool acqFifoTool = myToolGroup.Tools[1] as CogAcqFifoTool;
+            //        // CogAcqFifoTool acqFifoTool = myToolGroup.Tools["CogAcqFifoTool1"] as CogAcqFifoTool;
+
+
+            //        // =======================================================================================
+            //        // 261028@Jdin acqFifoTool 실행 테스트 
+            //        // acqFifoTool.Run();
+            //        //if (acqFifoTool.RunStatus.Result != CogToolResultConstants.Accept)
+            //        //{
+            //        //    MessageBox.Show("카메라 이미지 취득 실패");
+            //        //    return;
+            //        //}
+            //        //else if(acqFifoTool.OutputImage == null)
+            //        //{
+            //        //    MessageBox.Show("OutputImage가 null입니다. 이미지가 들어오지 않았습니다.");
+            //        //    return;
+            //        //}
+            //        // 
+            //        //ICogImage cogImage9 = (ICogImage)acqFifoTool.OutputImage;
+            //        //cogRecordDisplay1.Image = cogImage9;
+            //        // 화면 크기에 맞게 이미지 자동 조절 (Fit)
+            //        //cogRecordDisplay1.Fit();
+            //        // =======================================================================================
+
+
+            //        // --- [2] 라이브 카메라 모드 ---
+            //        //ICogRecords resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
+            //        //resultRecords.Clear();
+
+
+            //        bool isLocate = isCheckLocate();
+
+            //        if (!isLocate)
+            //        {
+            //            MessageBox.Show("위치 확인에 실패했습니다.");
+            //            return;
+            //        }
+
+            //        // 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
+            //        // 0 - LastRun.Image Source.OutputImage,
+            //        // 1 - LastRun.Locate.CogPMAlignTool1.InputImage,
+            //        // 2 - Locate.CogPMAlignTool1.OutputImage
+            //        // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
+            //        ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords["CogToolGroup1.Locate.CogFixtureTool1.OutputImage"];
+            //        cogRecordDisplay2.Record = resultRecord;
+
+            //        // 5. 화면 크기에 맞게 이미지 자동 조절 (Fit)
+            //        cogRecordDisplay2.Fit();
+            //    }
+            //    catch (Exception ex)
+            //    {
+            //        MessageBox.Show($"Job Manager 실행 오류 : {ex.Message}");
+            //    }
+            //}
+
+            //// Reults
+            //getInspectResults();
         }
 
 
@@ -540,21 +616,100 @@ namespace VproManageBlack02
         /// </summary>        
         private void getInspectResults()
         {
-            double leftDist1 = 0.0;
-            double leftDist2 = 0.0;
-            double rightDist1 = 0.0;
-            double rightDist2 = 0.0;
+            // 261028@Claude [1단계 1-3] 측정 ToolBlock의 RunStatus를 확인한 뒤에만 Outputs를 읽는다.
+            // 실패한 툴의 Outputs에는 이전 검사값이 남아 있으므로 그대로 표시하면 안 된다.
+            showSideResult(leftSide, textBox1, textBox2);
+            showSideResult(rightSide, textBox3, textBox4);
 
-            leftDist1 = (double)leftSide.Outputs[0].Value;
-            leftDist2 = (double)leftSide.Outputs[1].Value;
+            //double leftDist1 = 0.0;
+            //double leftDist2 = 0.0;
+            //double rightDist1 = 0.0;
+            //double rightDist2 = 0.0;
 
-            rightDist1 = (double)rightSide.Outputs[0].Value;
-            rightDist2 = (double)rightSide.Outputs[1].Value;
+            //leftDist1 = (double)leftSide.Outputs[0].Value;
+            //leftDist2 = (double)leftSide.Outputs[1].Value;
 
-            textBox1.Text = leftDist1.ToString("F2");
-            textBox2.Text = leftDist2.ToString("F2");
-            textBox3.Text = rightDist1.ToString("F2");
-            textBox4.Text = rightDist2.ToString("F2");
+            //rightDist1 = (double)rightSide.Outputs[0].Value;
+            //rightDist2 = (double)rightSide.Outputs[1].Value;
+
+            //textBox1.Text = leftDist1.ToString("F2");
+            //textBox2.Text = leftDist2.ToString("F2");
+            //textBox3.Text = rightDist1.ToString("F2");
+            //textBox4.Text = rightDist2.ToString("F2");
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [1단계 1-3] 측정 ToolBlock(LEFTside/RIGHTside) 하나의 결과를 TextBox 2개에 표시
+        /// 툴이 없거나 Accept가 아니면 측정값 대신 NG 상태를 표시한다.
+        /// </summary>
+        private void showSideResult(CogToolBlock sideBlock, TextBox txtDist1, TextBox txtDist2)
+        {
+            if (sideBlock == null)
+            {
+                txtDist1.Text = "N/A";
+                txtDist2.Text = "N/A";
+                return;
+            }
+
+            CogToolResultConstants result = sideBlock.RunStatus.Result;
+            if (result != CogToolResultConstants.Accept)
+            {
+                txtDist1.Text = "NG(" + result + ")";
+                txtDist2.Text = "NG(" + result + ")";
+                return;
+            }
+
+            txtDist1.Text = formatOutputValue(sideBlock, 0);
+            txtDist2.Text = formatOutputValue(sideBlock, 1);
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [1단계 1-4] ToolBlock 출력값을 안전하게 문자열로 변환 (없거나 숫자가 아니면 N/A)
+        /// </summary>
+        private string formatOutputValue(CogToolBlock block, int index)
+        {
+            if (index >= block.Outputs.Count)
+            {
+                return "N/A";
+            }
+
+            object value = block.Outputs[index].Value;
+            if (value is IConvertible)
+            {
+                try
+                {
+                    return Convert.ToDouble(value).ToString("F2");
+                }
+                catch (FormatException) { }
+                catch (InvalidCastException) { }
+            }
+            return "N/A";
+        }
+
+
+        /// <summary>
+        /// 261028@Claude [1단계 1-5] 모드별로 검사 실행에 필요한 객체가 준비되었는지 확인
+        /// 준비되었으면 null, 아니면 사용자에게 보여줄 메시지를 반환한다.
+        /// - 공통: myToolGroup, myToolGroupGroup, IPOneImageTool
+        /// - 라이브 카메라 모드: acqFifoTool 추가 (myToolGroup.Run()으로 실행하므로 jobManager는 필요 없음)
+        /// </summary>
+        private string getNotReadyMessage(bool isOfflineFileMode)
+        {
+            if (myToolGroup == null || myToolGroupGroup == null)
+            {
+                return "비전 시스템이 초기화되지 않았습니다. Model Load를 먼저 실행하세요.";
+            }
+            if (IPOneImageTool == null)
+            {
+                return "'CogIPOneImageTool1' 툴이 없어 검사를 실행할 수 없습니다.";
+            }
+            if (!isOfflineFileMode && acqFifoTool == null)
+            {
+                return "'CogAcqFifoTool1' 툴이 없어 카메라 모드를 실행할 수 없습니다.";
+            }
+            return null;
         }
 
 
