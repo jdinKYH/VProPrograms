@@ -90,3 +90,17 @@
 - 참고: AcqFifo가 tbImageSource 안에 있으므로 **VPP를 로드하는 순간** 카메라가 연결된다. 파일 모드로만 써도 카메라를 잡고 있음
 - 운영: QuickBuild와 VProManager02를 동시에 실행하지 않는다. 꼬이면 카메라를 잡은 쪽을 완전히 종료 후 다른 쪽 실행
 - 시험 시 주의: 카메라가 들어 있는 VPP를 별도 프로세스에서 로드하면 사용 중인 QuickBuild의 카메라 연결이 끊길 수 있음 (오늘 시험 중 발생했을 가능성)
+
+## 2026-10-29 · 위치 확인 실패 시 Result Image가 남는 문제
+
+- 증상 (사용자 화면 locateNG2/locateOK/locateNG): OK 검사 다음 위치 확인 실패(NG) 검사에서 Result Image에 이전 검사 이미지가 남음 (그래픽만 지워짐). NG 다음 NG는 비어 있어 드러나지 않았음
+- 원인: 검사 시작 때 `clearDisplayAll()`의 `Image = null`이 화면에 반영되지 않는 경우가 있고, 위치 확인 실패 시에는 Result 화면에 아무것도 넣지 않았음
+- 수정: 위치 확인 실패 시 `showLocateFailDisplay()` — 이번 입력 이미지 + 빨간 글자 "위치 확인 실패 (0.56 - FAIL)" (비우지 않고 이번 이미지로 교체)
+- 함께 수정
+  - 결과 화면 왼쪽 위 녹색 그래프·깨진 글자 제거: 캘리퍼 `RegionData` 레코드(ProjectionGraph, FilteredProjectionGraph, FoundEdges — 영역 이미지의 픽셀 좌표 `#`)를 그리지 않음. 그래픽 목록을 뽑아 원인 확인
+  - 검사 후 포커스를 Run 버튼으로 (Left Dist1 칸이 선택돼 보이던 문제)
+- 유지: 위치 확인 실패 메시지창 (사용자 결정), Result 라벨(하늘색 긴 숫자 등)은 사용자가 VPP에서 정리
+- 시험 (QuickBuild·VProManager02 종료 후, `1029_QB_TbSrcResults01.vpp`, 실제 화면 캡처)
+  - 2BL(OK): 측정 그래픽 정상, 왼쪽 위 그래프·깨진 글자 없음
+  - 이어서 3TI(NG 0.56): Result Image가 3TI 이미지 + "위치 확인 실패 (0.56 - FAIL)"로 바뀜
+  - 포커스 변경은 화면 시험에서 확인하지 못함 (시험 방식이 Run 버튼을 거치지 않음)

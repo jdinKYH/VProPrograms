@@ -418,6 +418,13 @@ namespace VProManager02
                     // 결과 화면: Locate 출력 이미지 + Locate·측정 그래픽 (실패해도 판정은 계속)
                     showResultDisplay();
                 }
+                else
+                {
+                    // 261029@Claude [VProManager02] 위치 확인 실패 시 이전 검사의 Result Image가 남던 문제
+                    // clearDisplayAll()의 Image = null이 화면에 반영되지 않는 경우가 있어(OK 다음 NG에서 확인),
+                    // 비우는 대신 이번 입력 이미지와 실패 표시를 직접 넣는다.
+                    showLocateFailDisplay(locateResult.Text);
+                }
 
                 // ③ 측정값 읽기와 공차 판정 (위치 확인 실패 시 "-")
                 evaluateMeasures(result, result.IsLocateOk);
@@ -588,11 +595,56 @@ namespace VProManager02
 
 
         /// <summary>
+        /// 261029@Claude [VProManager02] 위치 확인 실패 시 결과 화면(Display2): 이번 입력 이미지 + 빨간 실패 표시
+        /// - 이전 검사 이미지가 남지 않도록 비우지 않고 이번 이미지로 바꾼다. (새 이미지 넣기는 정상 동작 확인됨)
+        /// - 작업자가 어떤 이미지에서 실패했는지 바로 볼 수 있다.
+        /// 표시에 실패해도 검사 결과에는 영향이 없도록 로그만 남긴다.
+        /// </summary>
+        private void showLocateFailDisplay(string locateText)
+        {
+            try
+            {
+                cogRecordDisplay2.StaticGraphics.Clear();
+                cogRecordDisplay2.InteractiveGraphics.Clear();
+                cogRecordDisplay2.Image = currentInputImage;
+
+                if (currentInputImage != null)
+                {
+                    // 이미지 왼쪽 위(픽셀 좌표 "#")에 표시. 글자 크기는 화면 기준이라 확대·축소와 관계없이 일정하다.
+                    // ActiveX 표시 컨트롤이므로 글꼴은 Point 단위여야 한다.
+                    CogGraphicLabel label = new CogGraphicLabel();
+                    label.SelectedSpaceName = "#";
+                    label.Alignment = CogGraphicLabelAlignmentConstants.TopLeft;
+                    label.Font = new Font("맑은 고딕", 20F, FontStyle.Bold, GraphicsUnit.Point);
+                    label.Color = CogColorConstants.Red;
+                    label.BackgroundColor = CogColorConstants.White;
+                    label.SetXYText(currentInputImage.Width * 0.02, currentInputImage.Height * 0.02,
+                                    "위치 확인 실패 (" + locateText + ")");
+                    cogRecordDisplay2.StaticGraphics.Add(label, "LocateFail");
+                }
+                cogRecordDisplay2.Fit();
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("위치 확인 실패 화면 표시 실패", ex);
+            }
+        }
+
+
+        /// <summary>
         /// 레코드(하위 레코드 포함)에 들어 있는 그래픽을 Display2에 추가
         /// </summary>
         private void addRecordGraphics(ICogRecord record)
         {
             if (record == null)
+            {
+                return;
+            }
+
+            // 261029@Claude [VProManager02] 캘리퍼의 RegionData 레코드(영역 이미지용 ProjectionGraph 등)는 그리지 않는다.
+            // 캘리퍼 영역만 잘라 낸 작은 이미지의 픽셀 좌표(#)로 그려진 그래프라, 결과 이미지에 그리면
+            // 왼쪽 위 (0,0) 근처에 녹색 그래프와 깨진 글자로 겹쳐 보인다. (측정 화살표·라벨은 InputImage 레코드에 있음)
+            if (record.RecordKey != null && record.RecordKey.EndsWith("RegionData"))
             {
                 return;
             }
@@ -881,6 +933,13 @@ namespace VProManager02
             // Cursor.Current = isBusy ? Cursors.WaitCursor : Cursors.Default;
             UseWaitCursor = busy;
             btnFolderRun.UseWaitCursor = false;     // Stop 버튼은 일반 커서
+
+            // 261029@Claude [VProManager02] 검사 중 Run 버튼이 비활성화되면 포커스가 다음 칸(Left Dist1)으로 넘어가
+            // 검사 후 그 칸이 선택된 것처럼 보이므로, 끝나면 포커스를 Run 버튼으로 돌려놓는다.
+            if (!busy)
+            {
+                ActiveControl = btnRun;
+            }
         }
 
         //private void setBusy(bool isBusy)
