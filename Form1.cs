@@ -793,6 +793,12 @@ namespace VProManager02
             {
                 gridResults.Rows.RemoveAt(gridResults.Rows.Count - 1);
             }
+
+            // 261029@Claude [VProManager02] 행을 맨 위에 넣어도 선택 표시(파란 줄)는 이전 행에 남아
+            // 이전 검사가 현재 결과처럼 보이므로 선택을 해제하고, 새 행이 보이도록 맨 위로 스크롤한다.
+            gridResults.ClearSelection();
+            gridResults.CurrentCell = null;
+            gridResults.FirstDisplayedScrollingRowIndex = 0;
         }
 
         //private void completeInspection(InspectionResult result)
