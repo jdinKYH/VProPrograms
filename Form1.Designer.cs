@@ -51,9 +51,9 @@
             // 
             // btnRun
             // 
+            this.btnRun.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnRun.Font = new System.Drawing.Font("굴림", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.btnRun.Location = new System.Drawing.Point(1468, 841);
-            this.btnRun.Anchor = ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
+            this.btnRun.Location = new System.Drawing.Point(1454, 844);
             this.btnRun.Name = "btnRun";
             this.btnRun.Size = new System.Drawing.Size(183, 41);
             this.btnRun.TabIndex = 0;
@@ -63,10 +63,10 @@
             // 
             // chkFileMode
             // 
+            this.chkFileMode.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.chkFileMode.AutoSize = true;
             this.chkFileMode.Font = new System.Drawing.Font("굴림", 14.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.chkFileMode.Location = new System.Drawing.Point(1530, 17);
-            this.chkFileMode.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
             this.chkFileMode.Name = "chkFileMode";
             this.chkFileMode.Size = new System.Drawing.Size(107, 23);
             this.chkFileMode.TabIndex = 1;
@@ -90,125 +90,125 @@
             this.lblResultImage.Font = new System.Drawing.Font("굴림", 18F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.lblResultImage.Location = new System.Drawing.Point(969, 16);
             this.lblResultImage.Name = "lblResultImage";
-            this.lblResultImage.Size = new System.Drawing.Size(147, 24);
+            this.lblResultImage.Size = new System.Drawing.Size(152, 24);
             this.lblResultImage.TabIndex = 3;
-            this.lblResultImage.Text = "Result Image";   // 261028@Claude [4단계] 오타 수정 (기존 "Result mage")
+            this.lblResultImage.Text = "Result Image";
             // 
             // lblLeftDist1
             // 
+            this.lblLeftDist1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblLeftDist1.AutoSize = true;
-            this.lblLeftDist1.Location = new System.Drawing.Point(1452, 132);
-            this.lblLeftDist1.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.lblLeftDist1.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.lblLeftDist1.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblLeftDist1.Location = new System.Drawing.Point(1417, 129);
             this.lblLeftDist1.Name = "lblLeftDist1";
-            this.lblLeftDist1.Size = new System.Drawing.Size(56, 12);
+            this.lblLeftDist1.Size = new System.Drawing.Size(79, 14);
             this.lblLeftDist1.TabIndex = 4;
             this.lblLeftDist1.Text = "Left Dist1";
             // 
             // lblLeftDist2
             // 
+            this.lblLeftDist2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblLeftDist2.AutoSize = true;
-            this.lblLeftDist2.Location = new System.Drawing.Point(1452, 159);
-            this.lblLeftDist2.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.lblLeftDist2.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.lblLeftDist2.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblLeftDist2.Location = new System.Drawing.Point(1417, 159);
             this.lblLeftDist2.Name = "lblLeftDist2";
-            this.lblLeftDist2.Size = new System.Drawing.Size(56, 12);
+            this.lblLeftDist2.Size = new System.Drawing.Size(79, 14);
             this.lblLeftDist2.TabIndex = 5;
             this.lblLeftDist2.Text = "Left Dist2";
             // 
             // lblRightDist2
             // 
+            this.lblRightDist2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblRightDist2.AutoSize = true;
-            this.lblRightDist2.Location = new System.Drawing.Point(1452, 213);
-            this.lblRightDist2.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.lblRightDist2.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.lblRightDist2.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblRightDist2.Location = new System.Drawing.Point(1407, 210);
             this.lblRightDist2.Name = "lblRightDist2";
-            this.lblRightDist2.Size = new System.Drawing.Size(64, 12);
+            this.lblRightDist2.Size = new System.Drawing.Size(89, 14);
             this.lblRightDist2.TabIndex = 7;
             this.lblRightDist2.Text = "Right Dist2";
             // 
             // lblRightDist1
             // 
+            this.lblRightDist1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblRightDist1.AutoSize = true;
-            this.lblRightDist1.Location = new System.Drawing.Point(1452, 186);
-            this.lblRightDist1.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.lblRightDist1.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.lblRightDist1.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblRightDist1.Location = new System.Drawing.Point(1407, 183);
             this.lblRightDist1.Name = "lblRightDist1";
-            this.lblRightDist1.Size = new System.Drawing.Size(64, 12);
+            this.lblRightDist1.Size = new System.Drawing.Size(89, 14);
             this.lblRightDist1.TabIndex = 6;
             this.lblRightDist1.Text = "Right Dist1";
             // 
             // txtLeftDist1
             // 
-            this.txtLeftDist1.Location = new System.Drawing.Point(1537, 123);
-            this.txtLeftDist1.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.txtLeftDist1.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.txtLeftDist1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtLeftDist1.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.txtLeftDist1.Location = new System.Drawing.Point(1502, 123);
             this.txtLeftDist1.Name = "txtLeftDist1";
-            this.txtLeftDist1.Size = new System.Drawing.Size(100, 21);
+            this.txtLeftDist1.ReadOnly = true;
+            this.txtLeftDist1.Size = new System.Drawing.Size(135, 26);
             this.txtLeftDist1.TabIndex = 8;
             this.txtLeftDist1.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.txtLeftDist1.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // txtLeftDist2
             // 
-            this.txtLeftDist2.Location = new System.Drawing.Point(1537, 150);
-            this.txtLeftDist2.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.txtLeftDist2.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.txtLeftDist2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtLeftDist2.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.txtLeftDist2.Location = new System.Drawing.Point(1502, 153);
             this.txtLeftDist2.Name = "txtLeftDist2";
-            this.txtLeftDist2.Size = new System.Drawing.Size(100, 21);
+            this.txtLeftDist2.ReadOnly = true;
+            this.txtLeftDist2.Size = new System.Drawing.Size(135, 26);
             this.txtLeftDist2.TabIndex = 9;
             this.txtLeftDist2.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.txtLeftDist2.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // txtRightDist1
             // 
-            this.txtRightDist1.Location = new System.Drawing.Point(1537, 177);
-            this.txtRightDist1.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.txtRightDist1.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.txtRightDist1.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtRightDist1.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.txtRightDist1.Location = new System.Drawing.Point(1502, 177);
             this.txtRightDist1.Name = "txtRightDist1";
-            this.txtRightDist1.Size = new System.Drawing.Size(100, 21);
+            this.txtRightDist1.ReadOnly = true;
+            this.txtRightDist1.Size = new System.Drawing.Size(135, 26);
             this.txtRightDist1.TabIndex = 10;
             this.txtRightDist1.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.txtRightDist1.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // txtRightDist2
             // 
-            this.txtRightDist2.Location = new System.Drawing.Point(1537, 204);
-            this.txtRightDist2.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.txtRightDist2.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.txtRightDist2.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtRightDist2.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.txtRightDist2.Location = new System.Drawing.Point(1502, 204);
             this.txtRightDist2.Name = "txtRightDist2";
-            this.txtRightDist2.Size = new System.Drawing.Size(100, 21);
+            this.txtRightDist2.ReadOnly = true;
+            this.txtRightDist2.Size = new System.Drawing.Size(135, 26);
             this.txtRightDist2.TabIndex = 11;
             this.txtRightDist2.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.txtRightDist2.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // txtAlign
             // 
-            this.txtAlign.Location = new System.Drawing.Point(1537, 265);
-            this.txtAlign.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.txtAlign.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.txtAlign.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.txtAlign.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.txtAlign.Location = new System.Drawing.Point(1502, 265);
             this.txtAlign.Name = "txtAlign";
-            this.txtAlign.Size = new System.Drawing.Size(100, 21);
+            this.txtAlign.ReadOnly = true;
+            this.txtAlign.Size = new System.Drawing.Size(135, 26);
             this.txtAlign.TabIndex = 13;
             this.txtAlign.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
-            this.txtAlign.ReadOnly = true;   // 261028@Claude [3단계 5-1] 결과값 편집 방지
             // 
             // lblAlign
             // 
+            this.lblAlign.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblAlign.AutoSize = true;
-            this.lblAlign.Location = new System.Drawing.Point(1452, 274);
-            this.lblAlign.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
-            this.lblAlign.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));   // 261028@Claude [4단계 5-6]
+            this.lblAlign.Font = new System.Drawing.Font("굴림", 10F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
+            this.lblAlign.Location = new System.Drawing.Point(1447, 271);
             this.lblAlign.Name = "lblAlign";
-            this.lblAlign.Size = new System.Drawing.Size(37, 12);
+            this.lblAlign.Size = new System.Drawing.Size(49, 14);
             this.lblAlign.TabIndex = 12;
             this.lblAlign.Text = "Align ";
             // 
             // btnLoadModel
             // 
+            this.btnLoadModel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.btnLoadModel.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.btnLoadModel.Location = new System.Drawing.Point(1454, 57);
-            this.btnLoadModel.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
             this.btnLoadModel.Name = "btnLoadModel";
             this.btnLoadModel.Size = new System.Drawing.Size(183, 32);
             this.btnLoadModel.TabIndex = 14;
@@ -216,33 +216,33 @@
             this.btnLoadModel.UseVisualStyleBackColor = true;
             this.btnLoadModel.Click += new System.EventHandler(this.btnLoadModel_Click);
             // 
-            // lblJudge  (261028@Claude [3단계 3-1] 최종 OK/NG 표시)
+            // lblJudge
             // 
+            this.lblJudge.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
             this.lblJudge.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.lblJudge.Font = new System.Drawing.Font("굴림", 28F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
-            this.lblJudge.Location = new System.Drawing.Point(1454, 305);
-            this.lblJudge.Anchor = ((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
+            this.lblJudge.Location = new System.Drawing.Point(1410, 323);
             this.lblJudge.Name = "lblJudge";
-            this.lblJudge.Size = new System.Drawing.Size(183, 70);
+            this.lblJudge.Size = new System.Drawing.Size(227, 91);
             this.lblJudge.TabIndex = 15;
             this.lblJudge.Text = "-";
             this.lblJudge.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
-            // lblStatus  (261028@Claude [3단계 5-2] VPP, 모드, 검사 시간, OK/NG 카운트)
+            // lblStatus
             // 
+            this.lblStatus.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left)));
             this.lblStatus.AutoSize = true;
             this.lblStatus.Font = new System.Drawing.Font("굴림", 11F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.lblStatus.Location = new System.Drawing.Point(30, 870);
-            this.lblStatus.Anchor = ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Left));   // 261028@Claude [4단계 5-4]
             this.lblStatus.Name = "lblStatus";
             this.lblStatus.Size = new System.Drawing.Size(0, 15);
             this.lblStatus.TabIndex = 16;
             // 
-            // btnSettings  (261028@Claude [3단계 3-2] 설정 파일 열기)
+            // btnSettings
             // 
+            this.btnSettings.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnSettings.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.btnSettings.Location = new System.Drawing.Point(1454, 795);
-            this.btnSettings.Anchor = ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));   // 261028@Claude [4단계 5-4]
             this.btnSettings.Name = "btnSettings";
             this.btnSettings.Size = new System.Drawing.Size(183, 32);
             this.btnSettings.TabIndex = 17;
@@ -250,9 +250,9 @@
             this.btnSettings.UseVisualStyleBackColor = true;
             this.btnSettings.Click += new System.EventHandler(this.btnSettings_Click);
             // 
-            // btnFolderRun  (261028@Claude [4단계] 폴더 일괄 검사, 회귀 테스트)
+            // btnFolderRun
             // 
-            this.btnFolderRun.Anchor = ((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right));
+            this.btnFolderRun.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
             this.btnFolderRun.Font = new System.Drawing.Font("굴림", 12F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point, ((byte)(129)));
             this.btnFolderRun.Location = new System.Drawing.Point(1454, 749);
             this.btnFolderRun.Name = "btnFolderRun";
@@ -286,10 +286,10 @@
             this.Controls.Add(this.lblInputImage);
             this.Controls.Add(this.chkFileMode);
             this.Controls.Add(this.btnRun);
-            this.MinimumSize = new System.Drawing.Size(1024, 700);   // 261028@Claude [4단계 5-5]
+            this.MinimumSize = new System.Drawing.Size(1024, 700);
             this.Name = "Form1";
-            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;   // 261028@Claude [4단계 5-5]
-            this.Text = "VproManageBlack02";   // 261028@Claude [4단계] 기존 "Form1" (실행 중에는 VPP 이름 표시)
+            this.Text = "VproManageBlack02";
+            this.WindowState = System.Windows.Forms.FormWindowState.Maximized;
             this.ResumeLayout(false);
             this.PerformLayout();
 
