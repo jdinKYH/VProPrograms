@@ -60,11 +60,22 @@ namespace VproManageBlack02
         private int ngCount;
         private string lastErrorMessage = "";       // 261028@Claude [4단계] 일괄 검사에서 오류 내용 기록용
 
-        // 261028@Claude [4단계] 화면 배치 (오른쪽 패널 폭, 여백)
-        private const int RightPanelWidth = 230;
+        // 261029@Claude [검토 보완 2] 검사 중 상태 (창 닫기 막기, 일괄 검사 중지)
+        private bool isBusy;
+        private bool isBatchRunning;
+        private bool isStopRequested;
+        private bool isCloseRequested;
+
+        // 261029@Claude [검토 보완 1, 6, 9] 상태 표시줄 경고
+        private string lastSaveWarning = "";            // CSV 저장 경고
+        private string lastShownSettingsError = "";     // 이미 MessageBox로 알린 설정 파일 오류
+
+        // 261028@Claude [4단계] 화면 배치 (여백)
+        // 261029@Claude [검토 보완 3] 오른쪽 패널 폭·화면 위치는 고정값 대신 실제 컨트롤 위치로 계산 (DPI 배율 대응)
+        //private const int RightPanelWidth = 230;
+        //private const int DisplayTop = 50;
         private const int DisplayMargin = 30;
         private const int DisplayGap = 20;
-        private const int DisplayTop = 50;
 
 
         public Form1()
@@ -72,6 +83,7 @@ namespace VproManageBlack02
             InitializeComponent();
 
             // 261028@Claude [3단계 3-2] 검사 설정 읽기 (InspectionSettings.xml)
+            // (읽기 오류는 화면이 뜬 뒤 Form1_Shown에서 알림)
             settings = InspectionSettings.Load();
 
             // 코드로 CogRecordDisplay 생성 (위치·크기는 layoutDisplays()에서 창 크기에 맞춰 정함)
@@ -107,13 +119,32 @@ namespace VproManageBlack02
                 return;
             }
 
-            int bottom = lblStatus.Top - 10;
-            int availableWidth = ClientSize.Width - RightPanelWidth - DisplayMargin;
-            int width = Math.Max(100, (availableWidth - DisplayGap) / 2);
-            int height = Math.Max(100, bottom - DisplayTop);
+            // 261029@Claude [검토 보완 3] DPI 배율에 맞춰 여백을 키우고,
+            // 화면 오른쪽 끝은 오른쪽 패널 컨트롤 중 가장 왼쪽 위치, 화면 위쪽은 제목 라벨 아래로 계산한다.
+            float scale = DeviceDpi / 96f;
+            int margin = (int)(DisplayMargin * scale);
+            int gap = (int)(DisplayGap * scale);
 
-            cogRecordDisplay1.SetBounds(DisplayMargin, DisplayTop, width, height);
-            cogRecordDisplay2.SetBounds(DisplayMargin + width + DisplayGap, DisplayTop, width, height);
+            int rightPanelLeft = new Control[]
+            {
+                chkFileMode, btnLoadModel, lblLeftDist1, lblLeftDist2, lblRightDist1, lblRightDist2, lblAlign,
+                txtLeftDist1, lblJudge, btnRun, btnSettings, btnFolderRun
+            }.Min(c => c.Left);
+            int top = Math.Max(lblInputImage.Bottom, lblResultImage.Bottom) + gap / 2;
+            int bottom = lblStatus.Top - gap / 2;
+
+            //int bottom = lblStatus.Top - 10;
+            //int availableWidth = ClientSize.Width - RightPanelWidth - DisplayMargin;
+            //int width = Math.Max(100, (availableWidth - DisplayGap) / 2);
+            //int height = Math.Max(100, bottom - DisplayTop);
+            int availableWidth = rightPanelLeft - gap - margin;
+            int width = Math.Max(100, (availableWidth - gap) / 2);
+            int height = Math.Max(100, bottom - top);
+
+            //cogRecordDisplay1.SetBounds(DisplayMargin, DisplayTop, width, height);
+            //cogRecordDisplay2.SetBounds(DisplayMargin + width + DisplayGap, DisplayTop, width, height);
+            cogRecordDisplay1.SetBounds(margin, top, width, height);
+            cogRecordDisplay2.SetBounds(margin + width + gap, top, width, height);
 
             // 화면 제목은 각 화면의 가운데 위에
             lblInputImage.Left = cogRecordDisplay1.Left + (width - lblInputImage.Width) / 2;
@@ -127,10 +158,16 @@ namespace VproManageBlack02
         private void Form1_Shown(object sender, EventArgs e)
         {
             layoutDisplays();
+
+            // 261029@Claude [검토 보완 1] 시작할 때 설정 파일이 잘못되어 있으면 알린다.
+            showSettingsLoadError();
+
             if (!string.IsNullOrEmpty(settings.LastVppPath) && File.Exists(settings.LastVppPath))
             {
                 AppLogger.Info("마지막 VPP 자동 로드: " + settings.LastVppPath);
-                LoadVisionProJob(settings.LastVppPath);
+                // 261029@Claude [검토 보완] 자동 로드 때는 카메라 툴 없음 경고창을 띄우지 않고 상태 표시줄에만 표시
+                // LoadVisionProJob(settings.LastVppPath);
+                LoadVisionProJob(settings.LastVppPath, false);
             }
             updateStatusDisplay();
         }
@@ -141,6 +178,17 @@ namespace VproManageBlack02
         /// </summary>
         private void Form1_FormClosing(object sender, FormClosingEventArgs e)
         {
+            // 261029@Claude [검토 보완 2] 일괄 검사 중에는 바로 닫지 않고, 현재 이미지 검사가 끝나면 멈춘 뒤 닫는다.
+            // (기존: 검사 반복이 도는 중에 Shutdown되어 정리된 툴·화면을 계속 사용할 수 있었음)
+            if (isBusy)
+            {
+                e.Cancel = true;
+                isStopRequested = true;
+                isCloseRequested = true;
+                lblStatus.Text = "검사를 멈춘 뒤 프로그램을 닫습니다...";
+                return;
+            }
+
             vision.Shutdown();
         }
 
@@ -185,7 +233,9 @@ namespace VproManageBlack02
         /// <summary>
         /// VPP 로드 (검증·롤백은 VisionService.LoadJob, 여기서는 화면 처리만)
         /// </summary>
-        private void LoadVisionProJob(string vppPath)
+        // 261029@Claude [검토 보완] 자동 로드 때는 카메라 툴 없음 경고창을 띄우지 않도록 인자 추가
+        // private void LoadVisionProJob(string vppPath)
+        private void LoadVisionProJob(string vppPath, bool showCameraWarning = true)
         {
             Cursor previousCursor = Cursor.Current;
             Cursor.Current = Cursors.WaitCursor;
@@ -203,8 +253,9 @@ namespace VproManageBlack02
                 settings.Save();
                 updateStatusDisplay();
 
-                // 카메라 툴은 파일 모드만 사용할 때는 없어도 되므로 경고만 한다.
-                if (!vision.HasCamera)
+                // 카메라 툴은 파일 모드만 사용할 때는 없어도 되므로 경고만 한다. (상태 표시줄에도 표시)
+                // if (!vision.HasCamera)
+                if (!vision.HasCamera && showCameraWarning)
                 {
                     MessageBox.Show("툴그룹 내부에 'CogAcqFifoTool1' 툴이 존재하지 않습니다. 파일 모드만 사용할 수 있습니다.");
                 }
@@ -228,7 +279,9 @@ namespace VproManageBlack02
         private void btnRun_Click(object sender, EventArgs e)
         {
             // 메모장으로 바꾼 설정을 검사마다 다시 읽어 반영 (3단계 3-2)
-            settings = InspectionSettings.Load();
+            // 261029@Claude [검토 보완 1] 읽기에 실패하면 직전 설정을 유지하고 알림
+            // settings = InspectionSettings.Load();
+            reloadSettings();
 
             // UI의 체크박스 상태로 모드 판별 (true: 파일 검사, false: 라이브 카메라)
             bool isOfflineFileMode = chkFileMode.Checked;
@@ -330,11 +383,20 @@ namespace VproManageBlack02
 
                 if (result.IsLocateOk)
                 {
-                    // 결과 디스플레이 바인딩 (Locate.CogFixtureTool1.OutputImage)
-                    cogRecordDisplay2.Record = vision.CreateResultRecord();
-                    cogRecordDisplay2.Fit();
+                    // 261029@Claude [검토 보완 4] 결과 화면 표시가 실패해도 판정과 저장은 계속한다.
+                    // (기존: 레코드 키가 없는 등으로 예외가 나면 판정·CSV 기록까지 건너뜀)
+                    try
+                    {
+                        // 결과 디스플레이 바인딩 (Locate.CogFixtureTool1.OutputImage)
+                        cogRecordDisplay2.Record = vision.CreateResultRecord();
+                        cogRecordDisplay2.Fit();
+                    }
+                    catch (Exception ex)
+                    {
+                        AppLogger.Error("결과 화면 표시 실패 (판정은 계속)", ex);
+                    }
 
-                    // LEFTside/RIGHTside 측정 그래픽 표시 (3단계 3-7)
+                    // LEFTside/RIGHTside 측정 그래픽 표시 (3단계 3-7, 내부에서 예외 처리)
                     showMeasureGraphics();
                 }
 
@@ -345,7 +407,9 @@ namespace VproManageBlack02
                 result.ElapsedMs = stopwatch.ElapsedMilliseconds;
 
                 // OK/NG 표시, 카운트, 결과 저장
-                completeInspection(result);
+                // 261029@Claude [검토 보완 5] 일괄 검사(showMessages=false)는 생산 기록(일일 CSV, NG 이미지, 카운트)에 넣지 않음
+                // completeInspection(result);
+                completeInspection(result, !showMessages);
 
                 if (!result.IsLocateOk)
                 {
@@ -529,9 +593,18 @@ namespace VproManageBlack02
         /// <summary>
         /// 검사 마무리: OK/NG 표시, 카운트, CSV·NG 이미지 저장, 상태 표시 (3단계 3-1, 5-2)
         /// </summary>
-        private void completeInspection(InspectionResult result)
+        /// 261029@Claude [검토 보완 5] isBatch(폴더 일괄 검사)면 판정만 표시하고
+        /// 생산 기록(OK/NG 카운트, 일일 CSV, NG 이미지)에는 넣지 않는다. 결과는 일괄 검사 보고서에 남는다.
+        /// 261029@Claude [검토 보완 6] CSV 저장 경고를 상태 표시줄에 표시
+        private void completeInspection(InspectionResult result, bool isBatch)
         {
             showJudge(result.IsOk);
+            lastElapsedMs = result.ElapsedMs;
+
+            if (isBatch)
+            {
+                return;
+            }
 
             if (result.IsOk)
             {
@@ -541,11 +614,11 @@ namespace VproManageBlack02
             {
                 ngCount++;
             }
-            lastElapsedMs = result.ElapsedMs;
 
             if (settings.SaveResultCsv)
             {
-                ResultRecorder.AppendCsv(result);
+                // ResultRecorder.AppendCsv(result);
+                lastSaveWarning = ResultRecorder.AppendCsv(result) ?? "";
             }
             if (!result.IsOk && settings.SaveNgImage)
             {
@@ -554,6 +627,32 @@ namespace VproManageBlack02
 
             updateStatusDisplay();
         }
+
+        //private void completeInspection(InspectionResult result)
+        //{
+        //    showJudge(result.IsOk);
+
+        //    if (result.IsOk)
+        //    {
+        //        okCount++;
+        //    }
+        //    else
+        //    {
+        //        ngCount++;
+        //    }
+        //    lastElapsedMs = result.ElapsedMs;
+
+        //    if (settings.SaveResultCsv)
+        //    {
+        //        ResultRecorder.AppendCsv(result);
+        //    }
+        //    if (!result.IsOk && settings.SaveNgImage)
+        //    {
+        //        ResultRecorder.SaveNgImage(currentInputImage, result.Time);
+        //    }
+
+        //    updateStatusDisplay();
+        //}
 
 
         /// <summary>
@@ -577,21 +676,104 @@ namespace VproManageBlack02
 
             this.Text = "VproManageBlack02 - " + vppName;
             lblStatus.Text = $"VPP: {vppName}    |    모드: {mode}    |    검사 시간: {lastElapsedMs} ms    |    OK: {okCount}    NG: {ngCount}";
+
+            // 261029@Claude [검토 보완 1, 6, 9] 설정 파일 오류, 공차 미설정, CSV 저장 문제, 카메라 툴 없음을 함께 표시
+            List<string> warnings = new List<string>();
+            if (!string.IsNullOrEmpty(InspectionSettings.LastLoadError))
+            {
+                warnings.Add("설정 파일 오류(직전 설정 사용)");
+            }
+            string settingsWarning = settings.GetWarningText();
+            if (settingsWarning.Length > 0)
+            {
+                warnings.Add(settingsWarning);
+            }
+            if (lastSaveWarning.Length > 0)
+            {
+                warnings.Add(lastSaveWarning);
+            }
+            if (!string.IsNullOrEmpty(vision.LoadedVppPath) && !vision.HasCamera)
+            {
+                warnings.Add("카메라 툴 없음(파일 모드만 가능)");
+            }
+
+            if (warnings.Count > 0)
+            {
+                lblStatus.Text += "    |    ⚠ " + string.Join(" / ", warnings);
+                lblStatus.ForeColor = Color.Red;
+            }
+            else
+            {
+                lblStatus.ForeColor = SystemColors.ControlText;
+            }
+        }
+
+
+        /// <summary>
+        /// 261029@Claude [검토 보완 1] 설정 파일을 다시 읽는다. 실패하면 직전 설정을 유지하고 알린다.
+        /// </summary>
+        private void reloadSettings()
+        {
+            settings = InspectionSettings.Load(settings);
+            showSettingsLoadError();
+            updateStatusDisplay();
+        }
+
+
+        /// <summary>
+        /// 261029@Claude [검토 보완 1] 설정 파일 읽기 오류를 MessageBox로 알린다. (같은 오류는 한 번만)
+        /// </summary>
+        private void showSettingsLoadError()
+        {
+            string error = InspectionSettings.LastLoadError;
+            if (string.IsNullOrEmpty(error))
+            {
+                lastShownSettingsError = "";
+                return;
+            }
+            if (error == lastShownSettingsError)
+            {
+                return;
+            }
+            lastShownSettingsError = error;
+            MessageBox.Show(
+                "설정 파일을 읽을 수 없어 직전 설정으로 검사합니다.\n"
+                + "파일을 고치기 전까지 설정(마지막 VPP·폴더 등)은 저장되지 않습니다.\n\n"
+                + InspectionSettings.FilePath + "\n" + error,
+                "설정 파일 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
 
         /// <summary>
         /// 261028@Claude [4단계 2-5] 검사 중에는 버튼과 모드 선택을 막는다.
         /// </summary>
-        private void setBusy(bool isBusy)
+        /// 261029@Claude [검토 보완 2] 일괄 검사 중에는 Folder Run 버튼이 "Stop" 버튼이 된다.
+        /// 261029@Claude [검토 보완] DoEvents 후에도 대기 커서가 유지되도록 UseWaitCursor 사용
+        private void setBusy(bool busy, bool batch = false)
         {
-            btnRun.Enabled = !isBusy;
-            btnLoadModel.Enabled = !isBusy;
-            btnFolderRun.Enabled = !isBusy;
-            btnSettings.Enabled = !isBusy;
-            chkFileMode.Enabled = !isBusy;
-            Cursor.Current = isBusy ? Cursors.WaitCursor : Cursors.Default;
+            isBusy = busy;
+            isBatchRunning = busy && batch;
+
+            btnRun.Enabled = !busy;
+            btnLoadModel.Enabled = !busy;
+            btnFolderRun.Enabled = !busy || batch;
+            btnFolderRun.Text = isBatchRunning ? "Stop" : "Folder Run";
+            btnSettings.Enabled = !busy;
+            chkFileMode.Enabled = !busy;
+            // Cursor.Current = isBusy ? Cursors.WaitCursor : Cursors.Default;
+            UseWaitCursor = busy;
+            btnFolderRun.UseWaitCursor = false;     // Stop 버튼은 일반 커서
         }
+
+        //private void setBusy(bool isBusy)
+        //{
+        //    btnRun.Enabled = !isBusy;
+        //    btnLoadModel.Enabled = !isBusy;
+        //    btnFolderRun.Enabled = !isBusy;
+        //    btnSettings.Enabled = !isBusy;
+        //    chkFileMode.Enabled = !isBusy;
+        //    Cursor.Current = isBusy ? Cursors.WaitCursor : Cursors.Default;
+        //}
 
 
         /// <summary>
@@ -630,7 +812,18 @@ namespace VproManageBlack02
         /// </summary>
         private void btnFolderRun_Click(object sender, EventArgs e)
         {
-            settings = InspectionSettings.Load();
+            // 261029@Claude [검토 보완 2] 일괄 검사 중에는 Stop 버튼: 현재 이미지 검사가 끝나면 멈춘다.
+            if (isBatchRunning)
+            {
+                isStopRequested = true;
+                btnFolderRun.Enabled = false;
+                lblStatus.Text = "현재 이미지 검사가 끝나면 멈춥니다...";
+                return;
+            }
+
+            // 261029@Claude [검토 보완 1] 읽기에 실패하면 직전 설정을 유지하고 알림
+            // settings = InspectionSettings.Load();
+            reloadSettings();
 
             string notReadyMessage = vision.GetNotReadyMessage(true);
             if (notReadyMessage != null)
@@ -678,11 +871,20 @@ namespace VproManageBlack02
             AppLogger.Info($"폴더 일괄 검사 시작: {folder} ({imageFiles.Count}장, 기대값 {(expected == null ? "없음" : expected.Count + "건")})");
             List<BatchItem> items = new List<BatchItem>();
 
-            setBusy(true);
+            // setBusy(true);
+            isStopRequested = false;
+            setBusy(true, true);
             try
             {
                 for (int i = 0; i < imageFiles.Count; i++)
                 {
+                    // 261029@Claude [검토 보완 2] Stop 버튼 또는 창 닫기 요청 시 중지
+                    if (isStopRequested)
+                    {
+                        AppLogger.Info($"폴더 일괄 검사 중지: {i}/{imageFiles.Count}장 검사");
+                        break;
+                    }
+
                     BatchItem item = new BatchItem { FilePath = imageFiles[i] };
                     lblStatus.Text = $"폴더 검사 중 {i + 1}/{imageFiles.Count}: {item.FileName}";
                     lblStatus.Refresh();
@@ -725,7 +927,12 @@ namespace VproManageBlack02
             int okItems = items.Count(x => x.JudgeText == "OK");
             int ngItems = items.Count(x => x.JudgeText == "NG");
             int errorItems = items.Count(x => x.JudgeText == "ERROR");
-            string summary = $"폴더 일괄 검사 완료: {items.Count}장\nOK {okItems} / NG {ngItems} / ERROR {errorItems}";
+            // string summary = $"폴더 일괄 검사 완료: {items.Count}장\nOK {okItems} / NG {ngItems} / ERROR {errorItems}";
+            // 261029@Claude [검토 보완 2] 중지했으면 검사한 장수를 함께 표시
+            string summary = (items.Count < imageFiles.Count
+                                ? $"폴더 일괄 검사 중지: {items.Count}/{imageFiles.Count}장 검사"
+                                : $"폴더 일괄 검사 완료: {items.Count}장")
+                             + $"\nOK {okItems} / NG {ngItems} / ERROR {errorItems}";
 
             if (expected != null)
             {
@@ -741,6 +948,14 @@ namespace VproManageBlack02
             summary += "\n\n보고서: " + (reportPath ?? "(저장 실패 - 로그 확인)");
 
             AppLogger.Info(summary.Replace("\n", " "));
+
+            // 261029@Claude [검토 보완 2] 검사 중에 창 닫기를 눌렀으면 보고서를 남긴 뒤 닫는다.
+            if (isCloseRequested)
+            {
+                BeginInvoke(new Action(Close));
+                return;
+            }
+
             MessageBox.Show(summary, "폴더 일괄 검사", MessageBoxButtons.OK,
                 items.Any(x => x.RegressionStatus == "FAIL" || x.JudgeText == "ERROR") ? MessageBoxIcon.Warning : MessageBoxIcon.Information);
         }

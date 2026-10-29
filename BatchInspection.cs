@@ -75,7 +75,9 @@ namespace VproManageBlack02
                 return null;
             }
 
-            string[] lines = File.ReadAllLines(expectedPath, Encoding.UTF8);
+            // 261029@Claude [검토 보완 7] Excel 기본 저장(ANSI, CP949)도 읽을 수 있도록 인코딩 자동 판별
+            // string[] lines = File.ReadAllLines(expectedPath, Encoding.UTF8);
+            string[] lines = readAllLinesAutoEncoding(expectedPath);
             if (lines.Length == 0)
             {
                 return null;
@@ -176,7 +178,9 @@ namespace VproManageBlack02
         {
             try
             {
-                string resultDir = Path.Combine(Application.StartupPath, "Results");
+                // 261029@Claude [검토 보완 8] 실행 폴더에 쓸 수 없으면 ProgramData 사용
+                // string resultDir = Path.Combine(Application.StartupPath, "Results");
+                string resultDir = AppPaths.ResultDirectory;
                 Directory.CreateDirectory(resultDir);
                 string reportPath = Path.Combine(resultDir, "Batch_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
 
@@ -221,6 +225,31 @@ namespace VproManageBlack02
                 AppLogger.Error("일괄 검사 보고서 저장 실패", ex);
                 return null;
             }
+        }
+
+
+        /// <summary>
+        /// 261029@Claude [검토 보완 7] 텍스트 파일 읽기: BOM이 있거나 올바른 UTF-8이면 UTF-8,
+        /// 아니면 시스템 기본 인코딩(한국어 Windows는 CP949, Excel의 "CSV(쉼표로 분리)" 저장 형식)
+        /// </summary>
+        private static string[] readAllLinesAutoEncoding(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            string text;
+            try
+            {
+                // BOM은 자동으로 건너뛰고, 잘못된 UTF-8 바이트가 있으면 예외
+                text = new UTF8Encoding(false, true).GetString(bytes);
+                if (text.Length > 0 && text[0] == '﻿')
+                {
+                    text = text.Substring(1);
+                }
+            }
+            catch (DecoderFallbackException)
+            {
+                text = Encoding.Default.GetString(bytes);
+            }
+            return text.Replace("\r\n", "\n").Split('\n');
         }
 
 

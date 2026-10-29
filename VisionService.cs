@@ -444,6 +444,12 @@ namespace VproManageBlack02
                 value = block.Outputs[spec.OutputIndex].Value;
             }
 
+            // 261029@Claude [검토 보완] true/false 출력은 측정값이 아니므로 1.00/0.00으로 바꾸지 않는다.
+            if (value is bool)
+            {
+                return null;
+            }
+
             if (value is IConvertible)
             {
                 try

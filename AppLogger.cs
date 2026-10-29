@@ -49,7 +49,9 @@ namespace VproManageBlack02
         {
             try
             {
-                string logDir = Path.Combine(Application.StartupPath, "Logs");
+                // 261029@Claude [검토 보완 8] 실행 폴더에 쓸 수 없으면 ProgramData 사용
+                // string logDir = Path.Combine(Application.StartupPath, "Logs");
+                string logDir = AppPaths.LogDirectory;
                 Directory.CreateDirectory(logDir);
                 string logPath = Path.Combine(logDir, DateTime.Now.ToString("yyyyMMdd") + ".log");
                 string line = $"[{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}] [{level}] {message}{Environment.NewLine}";

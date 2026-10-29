@@ -60,19 +60,54 @@ namespace VproManageBlack02
     {
         private static string ResultDir
         {
-            get { return Path.Combine(Application.StartupPath, "Results"); }
+            // 261029@Claude [검토 보완 8] 실행 폴더에 쓸 수 없으면 ProgramData 사용
+            // get { return Path.Combine(Application.StartupPath, "Results"); }
+            get { return AppPaths.ResultDirectory; }
         }
 
 
         /// <summary>
-        /// Results\yyyyMMdd.csv 에 한 줄 추가 (파일이 없으면 헤더 먼저 기록)
+        /// 261029@Claude [검토 보완 6] Results\yyyyMMdd.csv 에 한 줄 추가
+        /// 파일이 Excel 등에서 열려 있어 쓸 수 없으면 yyyyMMdd_locked.csv 에 대신 기록한다.
+        /// 정상이면 null, 아니면 화면에 보여줄 경고를 반환한다. (기존: 실패해도 로그에만 남음)
         /// </summary>
-        public static void AppendCsv(InspectionResult result)
+        public static string AppendCsv(InspectionResult result)
         {
+            string date = result.Time.ToString("yyyyMMdd");
             try
             {
                 Directory.CreateDirectory(ResultDir);
-                string csvPath = Path.Combine(ResultDir, result.Time.ToString("yyyyMMdd") + ".csv");
+                appendCsvLine(Path.Combine(ResultDir, date + ".csv"), result);
+                return null;
+            }
+            catch (IOException ex)
+            {
+                AppLogger.Error("검사 결과 CSV 저장 실패 (파일 사용 중?) → 대체 파일에 저장 시도", ex);
+                try
+                {
+                    appendCsvLine(Path.Combine(ResultDir, date + "_locked.csv"), result);
+                    return $"CSV({date}.csv)가 열려 있어 {date}_locked.csv에 저장";
+                }
+                catch (Exception ex2)
+                {
+                    AppLogger.Error("검사 결과 대체 CSV 저장 실패", ex2);
+                    return "CSV 저장 실패 (로그 확인)";
+                }
+            }
+            catch (Exception ex)
+            {
+                AppLogger.Error("검사 결과 CSV 저장 실패", ex);
+                return "CSV 저장 실패 (로그 확인)";
+            }
+        }
+
+
+        /// <summary>
+        /// CSV 파일에 검사 결과 한 줄 추가 (파일이 없으면 헤더 먼저 기록). 실패하면 예외
+        /// </summary>
+        private static void appendCsvLine(string csvPath, InspectionResult result)
+        {
+            {
                 bool isNewFile = !File.Exists(csvPath);
 
                 StringBuilder sb = new StringBuilder();
@@ -99,10 +134,11 @@ namespace VproManageBlack02
                 // Excel에서 한글이 깨지지 않도록 BOM 포함 UTF-8
                 File.AppendAllText(csvPath, sb.ToString(), new UTF8Encoding(true));
             }
-            catch (Exception ex)
-            {
-                AppLogger.Error("검사 결과 CSV 저장 실패", ex);
-            }
+            // 261029@Claude [검토 보완 6] 예외 처리는 AppendCsv에서 (기존 코드)
+            //catch (Exception ex)
+            //{
+            //    AppLogger.Error("검사 결과 CSV 저장 실패", ex);
+            //}
         }
 
 
@@ -121,10 +157,21 @@ namespace VproManageBlack02
                 Directory.CreateDirectory(ngDir);
                 string imagePath = Path.Combine(ngDir, time.ToString("HHmmssfff") + ".bmp");
 
+                // 261029@Claude [검토 보완] 저장 중 예외가 나도 파일이 닫히도록 finally에서 Close
+                //CogImageFile imageFile = new CogImageFile();
+                //imageFile.Open(imagePath, CogImageFileModeConstants.Write);
+                //imageFile.Append(image);
+                //imageFile.Close();
                 CogImageFile imageFile = new CogImageFile();
-                imageFile.Open(imagePath, CogImageFileModeConstants.Write);
-                imageFile.Append(image);
-                imageFile.Close();
+                try
+                {
+                    imageFile.Open(imagePath, CogImageFileModeConstants.Write);
+                    imageFile.Append(image);
+                }
+                finally
+                {
+                    try { imageFile.Close(); } catch { }
+                }
                 return imagePath;
             }
             catch (Exception ex)
