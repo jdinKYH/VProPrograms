@@ -38,6 +38,12 @@ using System.Windows.Forms;
 //  - BatchInspection     : 폴더 일괄 검사, 회귀 테스트 (expected.csv)
 //  - AppLogger           : 파일 로그 (Logs\yyyyMMdd.log)
 //  이 파일 아래쪽에 3단계까지의 Form1.cs 전체가 주석으로 남아 있다.
+//
+//  261029@Claude [트리 구조 적용] 하위 그룹(CogToolGroup1)이 없는 VPP 구조로 변경
+//  - 모든 툴이 상위 ToolGroup 바로 아래: CogAcqFifoTool1 → CogIPOneImageTool1 → Locate
+//    → LEFTside / RIGHTside → CogToolBlock1 (자세한 구조는 VisionService.cs 머리말)
+//  - 파일·카메라 모드 모두 VisionService.RunPipeline이 툴을 순서대로 실행한다.
+//    (이 파일의 검사 흐름은 그대로이고, VisionService 안쪽만 바뀌었다)
 // ===============================================================================
 namespace VproManageBlack02
 {
@@ -354,6 +360,7 @@ namespace VproManageBlack02
                 else
                 {
                     // --- [2] 라이브 카메라 모드 ---
+                    // 261029@Claude [트리 구조 적용] 카메라 취득 후 파일 모드와 같은 순서로 검사 (VisionService.RunWithCamera)
                     ICogImage acquiredImage;
                     string acquireError = vision.RunWithCamera(out acquiredImage);
                     if (acquireError != null)
@@ -370,6 +377,7 @@ namespace VproManageBlack02
                 }
 
                 // Tool 실행 후 처리된 이미지를 입력 화면에 표시
+                // (CogIPOneImageTool1.OutputImage. 전처리에 실패했으면 null이라 화면이 비어 있음)
                 cogRecordDisplay1.Image = vision.ProcessedImage;
                 cogRecordDisplay1.Fit();
                 result.ImageSource = currentImageSource;
@@ -388,6 +396,8 @@ namespace VproManageBlack02
                     try
                     {
                         // 결과 디스플레이 바인딩 (Locate.CogFixtureTool1.OutputImage)
+                        // 261029@Claude [트리 구조 적용] 상위 그룹 레코드 대신 Locate 레코드에서 찾고,
+                        // 없으면 Locate 출력 이미지(OutputImage)로 대체한다. (VisionService.CreateResultRecord)
                         cogRecordDisplay2.Record = vision.CreateResultRecord();
                         cogRecordDisplay2.Fit();
                     }

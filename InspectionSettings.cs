@@ -8,6 +8,7 @@ using System.Xml.Serialization;
 //  실행 파일 폴더의 InspectionSettings.xml 에 저장한다. (없으면 기본값으로 새로 만든다)
 //  - PMAlign 최소 점수 (기존 하드코딩 0.6)
 //  - 측정값 4개의 ToolBlock 출력 이름/번호와 공차(Min/Max)
+//    261029@Claude [트리 구조 적용] 출력 이름 기본값: leftDist01, leftDist02, rightDist01, rightDist02
 //  - 마지막 VPP 경로, 마지막 이미지 폴더, 결과 저장 여부
 //  메모장으로 수정한 뒤 다음 검사부터 반영된다. (검사할 때마다 다시 읽음)
 // ===============================================================================
@@ -40,6 +41,15 @@ namespace VproManageBlack02
             DisplayName = displayName;
             OutputIndex = outputIndex;
         }
+
+        /// <summary>
+        /// 261029@Claude [트리 구조 적용] 출력 이름까지 지정 (이름을 먼저 찾고, 없으면 번호 사용)
+        /// </summary>
+        public MeasureSpec(string displayName, string outputName, int outputIndex)
+            : this(displayName, outputIndex)
+        {
+            OutputName = outputName;
+        }
     }
 
 
@@ -48,10 +58,22 @@ namespace VproManageBlack02
         /// <summary>PMAlign 결과 점수가 이 값보다 작으면 위치 확인 실패 (기존 0.6)</summary>
         public double PMAlignMinScore = 0.6;
 
-        public MeasureSpec LeftDist1 = new MeasureSpec("Left Dist1", 0);
-        public MeasureSpec LeftDist2 = new MeasureSpec("Left Dist2", 1);
-        public MeasureSpec RightDist1 = new MeasureSpec("Right Dist1", 0);
-        public MeasureSpec RightDist2 = new MeasureSpec("Right Dist2", 1);
+        // 261029@Claude [트리 구조 적용] 새 VPP의 LEFTside/RIGHTside 출력 이름을 기본값으로 지정 (기존 코드)
+        // 번호는 이름을 찾지 못할 때만 쓰인다. (LEFTside 출력 순서: leftDist01=0, leftDist02=1)
+        //public MeasureSpec LeftDist1 = new MeasureSpec("Left Dist1", 0);
+        //public MeasureSpec LeftDist2 = new MeasureSpec("Left Dist2", 1);
+        //public MeasureSpec RightDist1 = new MeasureSpec("Right Dist1", 0);
+        //public MeasureSpec RightDist2 = new MeasureSpec("Right Dist2", 1);
+        public MeasureSpec LeftDist1 = new MeasureSpec("Left Dist1", DefaultLeftDist1Output, 0);
+        public MeasureSpec LeftDist2 = new MeasureSpec("Left Dist2", DefaultLeftDist2Output, 1);
+        public MeasureSpec RightDist1 = new MeasureSpec("Right Dist1", DefaultRightDist1Output, 0);
+        public MeasureSpec RightDist2 = new MeasureSpec("Right Dist2", DefaultRightDist2Output, 1);
+
+        // 261029@Claude [트리 구조 적용] VPP 터미널 이름 (트리에 보이는 이름 그대로, 대소문자 구분)
+        private const string DefaultLeftDist1Output = "leftDist01";
+        private const string DefaultLeftDist2Output = "leftDist02";
+        private const string DefaultRightDist1Output = "rightDist01";
+        private const string DefaultRightDist2Output = "rightDist02";
 
         /// <summary>마지막으로 로드에 성공한 VPP (시작 시 자동 로드)</summary>
         public string LastVppPath = "";
@@ -157,22 +179,38 @@ namespace VproManageBlack02
             //if (LeftDist2 == null) LeftDist2 = new MeasureSpec("Left Dist2", 1);
             //if (RightDist1 == null) RightDist1 = new MeasureSpec("Right Dist1", 0);
             //if (RightDist2 == null) RightDist2 = new MeasureSpec("Right Dist2", 1);
-            LeftDist1 = fillSpec(LeftDist1, "Left Dist1", 0);
-            LeftDist2 = fillSpec(LeftDist2, "Left Dist2", 1);
-            RightDist1 = fillSpec(RightDist1, "Right Dist1", 0);
-            RightDist2 = fillSpec(RightDist2, "Right Dist2", 1);
+            // 261029@Claude [트리 구조 적용] 출력 이름 기본값도 함께 채운다. (기존 코드)
+            //LeftDist1 = fillSpec(LeftDist1, "Left Dist1", 0);
+            //LeftDist2 = fillSpec(LeftDist2, "Left Dist2", 1);
+            //RightDist1 = fillSpec(RightDist1, "Right Dist1", 0);
+            //RightDist2 = fillSpec(RightDist2, "Right Dist2", 1);
+            LeftDist1 = fillSpec(LeftDist1, "Left Dist1", DefaultLeftDist1Output, 0);
+            LeftDist2 = fillSpec(LeftDist2, "Left Dist2", DefaultLeftDist2Output, 1);
+            RightDist1 = fillSpec(RightDist1, "Right Dist1", DefaultRightDist1Output, 0);
+            RightDist2 = fillSpec(RightDist2, "Right Dist2", DefaultRightDist2Output, 1);
         }
 
 
-        private static MeasureSpec fillSpec(MeasureSpec spec, string defaultName, int defaultIndex)
+        /// <summary>
+        /// 측정 항목 하나의 빈 값을 기본값으로 채움
+        /// 261029@Claude [트리 구조 적용] OutputName이 비어 있으면 새 VPP 출력 이름으로 채운다.
+        /// 기존 설정 파일(OutputName 빈 값, 번호 0/1 사용)도 그대로 동작하지만, 이름으로 읽는 것이
+        /// VPP에서 출력 순서를 바꿨을 때 다른 값을 읽는 실수를 막아 준다.
+        /// 사용자가 직접 적은 OutputName은 바꾸지 않는다.
+        /// </summary>
+        private static MeasureSpec fillSpec(MeasureSpec spec, string defaultName, string defaultOutputName, int defaultIndex)
         {
             if (spec == null)
             {
-                return new MeasureSpec(defaultName, defaultIndex);
+                return new MeasureSpec(defaultName, defaultOutputName, defaultIndex);
             }
             if (string.IsNullOrWhiteSpace(spec.DisplayName))
             {
                 spec.DisplayName = defaultName;
+            }
+            if (string.IsNullOrWhiteSpace(spec.OutputName))
+            {
+                spec.OutputName = defaultOutputName;
             }
             return spec;
         }
