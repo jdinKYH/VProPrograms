@@ -110,3 +110,22 @@
 - 증상: 새 행을 맨 위에 넣어도 선택 표시(파란 줄)가 이전 행에 남아 이전 검사가 현재 결과처럼 보임
 - 수정: `addResultGridRow`에서 행 추가 후 `ClearSelection()`, `CurrentCell = null`, 맨 위로 스크롤
 - 시험: VPP 로드·창 표시 없이(카메라 연결 안 함) 행 3개 추가 → 매번 맨 위가 새 행, 선택된 행 0개
+
+## 다음 작업: 판정 기능 (예정: 2026-11-02 주)
+
+현재 상태: 결과 Grid의 `판정` 열은 자리만 있고 빈칸 (`Form1.addResultGridRow`의 `cells.Add("")`).
+화면의 OK/NG(lblJudge)는 Locate + 측정값 Min/Max(Settings 창)로 이미 판정 중.
+
+시작 전에 정할 것
+
+1. 판정 기준을 어디에 둘지
+   - (a) VPP의 CogResultsAnalysisTool1에 판정식을 넣고 `Result.Decision`(Accept/Reject) 사용
+   - (b) 프로그램 Settings 창의 Min/Max로 판정 (현재 OK/NG 방식)
+2. Grid 판정 열과 현재 OK/NG 판정의 관계: 같은 값을 표시할지, 별도 판정으로 둘지
+3. 판정 결과를 CSV(`Results\yyyyMMdd.csv`)·일괄 검사 보고서(`Batch_*.csv`)에도 기록할지
+
+참고
+
+- 결과 분석 판정은 VProManager01에서 한 번 구현했다가 VProManager02에서 제거함 (판정식 없이 Decision이 항상 Accept라 의미가 없었음). 이전 구현은 VProManager01의 `VisionService.CheckAnalysis`, `InspectionSettings.UseResultsAnalysisDecision` 참고
+- 시험용: VPP `QB_Jobs\1029_QB_TbSrcResults01.vpp`, 이미지 `261002_single\2BL.bmp`(OK), `3TI.bmp`(0.56 FAIL)
+- 시험 전 QuickBuild·VProManager02를 닫을 것 (VPP 로드 시 카메라 연결)
