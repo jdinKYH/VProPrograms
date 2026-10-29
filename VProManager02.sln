@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.37516.0 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VProManager02", "VProManager02.csproj", "{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Debug|x64 = Debug|x64
+		Release|Any CPU = Release|Any CPU
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Debug|x64.ActiveCfg = Debug|x64
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Debug|x64.Build.0 = Debug|x64
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Release|x64.ActiveCfg = Release|x64
+		{BB87C480-BD6B-46B4-8D35-A23D0C52C97F}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {9CDDD70F-03AF-4AB3-AD2B-83CF9D30218F}
+	EndGlobalSection
+EndGlobal
