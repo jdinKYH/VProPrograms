@@ -83,8 +83,15 @@ namespace VProManager01
         // 261029@Claude [검토 보완 3] 오른쪽 패널 폭·화면 위치는 고정값 대신 실제 컨트롤 위치로 계산 (DPI 배율 대응)
         //private const int RightPanelWidth = 230;
         //private const int DisplayTop = 50;
-        private const int DisplayMargin = 30;
-        private const int DisplayGap = 20;
+        // 261029@Claude [FHD 고정] 창 크기가 고정되어 계산 대신 고정 좌표 사용 (기존 코드)
+        //private const int DisplayMargin = 30;
+        //private const int DisplayGap = 20;
+
+        // 261029@Claude [FHD 고정] CogRecordDisplay 위치·크기 (클라이언트 1900 x 980 기준, 픽셀)
+        // Designer의 lblInputImage(10, 8, 780 x 34), lblResultImage(800, 8, 780 x 34) 바로 아래에 맞춘다.
+        // 바꿀 때는 Form1.Designer.cs의 화면 제목·상태 표시줄 위치도 같이 맞출 것.
+        private static readonly Rectangle InputDisplayBounds = new Rectangle(10, 46, 780, 884);     // Input Image
+        private static readonly Rectangle ResultDisplayBounds = new Rectangle(800, 46, 780, 884);   // Result Image
 
 
         public Form1()
@@ -104,7 +111,8 @@ namespace VProManager01
             this.Controls.Add(cogRecordDisplay2);   // result image
 
             // 261028@Claude [4단계 5-4] 창 크기가 바뀌면 화면 배치를 다시 계산
-            this.Resize += (sender, e) => layoutDisplays();
+            // 261029@Claude [FHD 고정] 창 크기가 고정이라 Resize 때 다시 계산할 필요 없음 (기존 코드)
+            //this.Resize += (sender, e) => layoutDisplays();
             layoutDisplays();
 
             // 261028@Claude [2단계 2-1] 종료 시 VisionPro 자원 해제
@@ -119,7 +127,9 @@ namespace VProManager01
 
         /// <summary>
         /// 261028@Claude [4단계 5-4] 두 화면을 창 크기에 맞춰 배치
-        /// 오른쪽 패널(버튼·결과)은 Designer에서 오른쪽에 고정(Anchor)되어 있다.
+        /// (기존) 오른쪽 패널(버튼·결과)은 Designer에서 오른쪽에 고정(Anchor)되어 있다.
+        /// 261029@Claude [FHD 고정] 창 크기가 고정이므로 두 화면을 고정 좌표(InputDisplayBounds, ResultDisplayBounds)에 둔다.
+        /// 화면 제목 라벨은 Designer에서 화면 폭(780)에 맞춰 가운데 정렬되어 있어 따로 옮기지 않는다.
         /// </summary>
         private void layoutDisplays()
         {
@@ -128,36 +138,34 @@ namespace VProManager01
                 return;
             }
 
-            // 261029@Claude [검토 보완 3] DPI 배율에 맞춰 여백을 키우고,
-            // 화면 오른쪽 끝은 오른쪽 패널 컨트롤 중 가장 왼쪽 위치, 화면 위쪽은 제목 라벨 아래로 계산한다.
-            float scale = DeviceDpi / 96f;
-            int margin = (int)(DisplayMargin * scale);
-            int gap = (int)(DisplayGap * scale);
+            // 261029@Claude [FHD 고정] 창 크기·컨트롤 위치로 계산하던 방식 (기존 코드)
+            //// 261029@Claude [검토 보완 3] DPI 배율에 맞춰 여백을 키우고,
+            //// 화면 오른쪽 끝은 오른쪽 패널 컨트롤 중 가장 왼쪽 위치, 화면 위쪽은 제목 라벨 아래로 계산한다.
+            //float scale = DeviceDpi / 96f;
+            //int margin = (int)(DisplayMargin * scale);
+            //int gap = (int)(DisplayGap * scale);
+            //
+            //int rightPanelLeft = new Control[]
+            //{
+            //    chkFileMode, btnLoadModel, lblLeftDist1, lblLeftDist2, lblRightDist1, lblRightDist2, lblAlign,
+            //    txtLeftDist1, lblJudge, btnRun, btnSettings, btnFolderRun
+            //}.Min(c => c.Left);
+            //int top = Math.Max(lblInputImage.Bottom, lblResultImage.Bottom) + gap / 2;
+            //int bottom = lblStatus.Top - gap / 2;
+            //
+            //int availableWidth = rightPanelLeft - gap - margin;
+            //int width = Math.Max(100, (availableWidth - gap) / 2);
+            //int height = Math.Max(100, bottom - top);
+            //
+            //cogRecordDisplay1.SetBounds(margin, top, width, height);
+            //cogRecordDisplay2.SetBounds(margin + width + gap, top, width, height);
+            //
+            //// 화면 제목은 각 화면의 가운데 위에
+            //lblInputImage.Left = cogRecordDisplay1.Left + (width - lblInputImage.Width) / 2;
+            //lblResultImage.Left = cogRecordDisplay2.Left + (width - lblResultImage.Width) / 2;
 
-            int rightPanelLeft = new Control[]
-            {
-                chkFileMode, btnLoadModel, lblLeftDist1, lblLeftDist2, lblRightDist1, lblRightDist2, lblAlign,
-                txtLeftDist1, lblJudge, btnRun, btnSettings, btnFolderRun
-            }.Min(c => c.Left);
-            int top = Math.Max(lblInputImage.Bottom, lblResultImage.Bottom) + gap / 2;
-            int bottom = lblStatus.Top - gap / 2;
-
-            //int bottom = lblStatus.Top - 10;
-            //int availableWidth = ClientSize.Width - RightPanelWidth - DisplayMargin;
-            //int width = Math.Max(100, (availableWidth - DisplayGap) / 2);
-            //int height = Math.Max(100, bottom - DisplayTop);
-            int availableWidth = rightPanelLeft - gap - margin;
-            int width = Math.Max(100, (availableWidth - gap) / 2);
-            int height = Math.Max(100, bottom - top);
-
-            //cogRecordDisplay1.SetBounds(DisplayMargin, DisplayTop, width, height);
-            //cogRecordDisplay2.SetBounds(DisplayMargin + width + DisplayGap, DisplayTop, width, height);
-            cogRecordDisplay1.SetBounds(margin, top, width, height);
-            cogRecordDisplay2.SetBounds(margin + width + gap, top, width, height);
-
-            // 화면 제목은 각 화면의 가운데 위에
-            lblInputImage.Left = cogRecordDisplay1.Left + (width - lblInputImage.Width) / 2;
-            lblResultImage.Left = cogRecordDisplay2.Left + (width - lblResultImage.Width) / 2;
+            cogRecordDisplay1.Bounds = InputDisplayBounds;
+            cogRecordDisplay2.Bounds = ResultDisplayBounds;
         }
 
 
