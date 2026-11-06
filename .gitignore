@@ -1,0 +1,21 @@
+# ===== Visual Studio / 빌드 출력 =====
+.vs/
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+*.userprefs
+packages/
+
+# ===== VisionPro 파일 / 시험 데이터 (용량이 커서 PC 에만 보관) =====
+*.vpp
+*.bmp
+*.tif
+*.tiff
+*.idb
+*.cdb
+_Data/
+
+# ===== 편집기 저장 시 생기는 백업/임시 파일 =====
+*.bak
+*.saving.tmp
