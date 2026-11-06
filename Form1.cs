@@ -35,6 +35,7 @@ namespace VproManageBlack01
         CogToolBlock leftSide;
         CogToolBlock rightSide;
         CogFixtureTool fixtureTool;
+        CogIPOneImageTool IPOneImageTool;
 
         // 261019@jdin 폼 클래스 내부에 선언
         // 참조에 Cognex.VisionPro.Controls가 있어야 된다.
@@ -147,6 +148,12 @@ namespace VproManageBlack01
                         MessageBox.Show("툴그룹 내부에 'tbImageSource' 툴블록이 존재하지 않습니다. 이름을 확인해주세요.");
                     }
 
+                    // 261023@jdin 추가 = 이미지 선택 테스트
+                    IPOneImageTool = myToolGroup.Tools["CogIPOneImageTool1"] as CogIPOneImageTool;
+                    if (IPOneImageTool == null)
+                    {
+                        MessageBox.Show("툴그룹 내부에 'CogIPOneImageTool1' 툴이 존재하지 않습니다. 이름을 확인해주세요.");
+                    }
                     locate = myToolGroup.Tools["Locate"] as CogToolBlock;
                     if (tbImageSource == null)
                     {
@@ -203,14 +210,52 @@ namespace VproManageBlack01
                 tbImageSource.Inputs["IsFileMode"].Value = 1; // 1 = 파일 모드
                 tbImageSource.Inputs["FileInputImage"].Value = fileImage;
 
-                // 3. 카메라 타임아웃을 원천 차단하기 위해 검사 툴그룹만 단독 실행
-                myToolGroup.Run();
+               
+                IPOneImageTool.InputImage = fileImage;
+                //ICogImage cogImage3 = (ICogImage)tbImageSource.Inputs["FileInputImage"].Value;
+                ICogImage cogImage3 = (ICogImage)IPOneImageTool.InputImage;
+                cogRecordDisplay1.Image = cogImage3;
+                cogRecordDisplay1.Fit();
 
-                // input image
-                ICogImage cogImage1 = (ICogImage)tbImageSource.Outputs["OutputImage"].Value;
+                // input image : 261023 <= 정상적으로 입력이미지가 표시됨
+                ICogImage cogImage1 = (ICogImage)IPOneImageTool.OutputImage;
                 cogRecordDisplay1.Image = cogImage1;
                 cogRecordDisplay1.Fit();
 
+
+                ICogRecords resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
+                resultRecords.Clear();
+
+                // 3. 카메라 타임아웃을 원천 차단하기 위해 검사 툴그룹만 단독 실행
+                myToolGroup.Run();
+
+
+                // => 261023@jdin PMAlign Tool 결과 확인 추가
+                // CogToolBlock locate;
+                // locate = myToolGroup.Tools["Locate"] as CogToolBlock;
+                double pmScore = (double)locate.Outputs["PMScore"].Value;
+                if (pmScore < 0.5)
+                {
+                    textBox5.Text = "Align NG;";
+                }
+                else
+                {
+                    textBox5.Text = "Align OK";
+                }
+
+
+                // <= 261023@jdin PMAlign Tool 결과 확인 추가
+
+
+                // input image 261023@jdin -> 위치 변경
+                //ICogImage cogImage1 = (ICogImage)tbImageSource.Outputs["OutputImage"].Value;
+                //cogRecordDisplay1.Image = cogImage1;
+                //cogRecordDisplay1.Fit();
+
+
+
+                //ICogRecords resultrecords = myToolGroup.CreateLastRunRecord().SubRecords;
+                //resultrecords.Clear();
 
                 // 4. 결과 디스플레이 바인딩 (툴그룹 실행 결과 레코드 표시)
                 // ====================================================================================================
@@ -222,13 +267,20 @@ namespace VproManageBlack01
                 // 1 - LastRun.Locate.CogPMAlignTool1.InputImage,
                 // 2 - Locate.CogPMAlignTool1.OutputImage
                 // 3 - LastRun.Locate.CogFixtureTool1.outputImage <= 이것으로 함
-                ICogRecord resultRecord = myToolGroup.CreateLastRunRecord().SubRecords[3];
+                resultRecords = myToolGroup.CreateLastRunRecord().SubRecords;
+
+                ICogRecord resultRecord = resultRecords[3];
                 cogRecordDisplay2.Record = resultRecord;
+
+
                 // 5. 화면 크기에 맞게 이미지 자동 조절 (Fit)
                 cogRecordDisplay2.Fit();
 
                 // ICogRecord resultRecord = fixtureTool.CreateLastRunRecord(); -> 아무 이미지도 디스플레이 되지 않는다.
                 // cogRecordDisplay1.Image = fixtureTool.OutputImage; -> 그래픽이 없는 출력이미지 
+
+
+                resultRecords.Clear();
             }
             else
             {
@@ -240,12 +292,19 @@ namespace VproManageBlack01
                     tbImageSource.Inputs["FileInputImage"].Value = null;
                     
 
+
                     // 2. 카메라 취득부터 검사까지 전체 잡 매니저 실행
-                    // Tool Group을 실행하는 것이 맞다. // jobManager.Run();
-                    myToolGroup.Run();
+                    // Tool Group을 실행하는 것이 맞다. 
+                    
+                    jobManager.Run();
+                    
+                    //myToolGroup.Run();
+
+                    int mode = (int)tbImageSource.Inputs["IsFileMode"].Value;
 
                     // Input Image
-                    ICogImage cogImage = (ICogImage)tbImageSource.Outputs["OutputImage"].Value;
+                    // ICogImage cogImage = (ICogImage)tbImageSource.Outputs["OutputImage"].Value;
+                    ICogImage cogImage = (ICogImage)tbImageSource.Inputs["LiveInputImage"].Value;   // null이다. 왜?
                     cogRecordDisplay1.Image = cogImage;
                     // 화면 크기에 맞게 이미지 자동 조절 (Fit)
                     cogRecordDisplay1.Fit();
@@ -272,6 +331,15 @@ namespace VproManageBlack01
             // Reults
             getResults();
         }
+
+
+
+
+        private void liveMode()
+        {
+
+        }
+
 
                // 측정 결과를 읽어옴
         private void getResults()
