@@ -4,15 +4,19 @@ using System.Windows.Forms;
 
 namespace VProEditAll
 {
+    /// <summary>
+    /// 프로그램 시작점.
+    /// 하는 일: 오류 처리 방법을 정한 뒤 메인 화면(MainForm)을 띄운다.
+    /// </summary>
     internal static class Program
     {
         /// <summary>
-        /// 해당 애플리케이션의 주 진입점입니다.
+        /// 프로그램이 시작되면 가장 먼저 실행되는 함수.
         /// </summary>
         [STAThread]
         static void Main()
         {
-            // 261105@Claude [보완] 예기치 않은 오류로 프로그램이 바로 종료되지 않도록 전역 처리
+            // 예상하지 못한 오류가 나도 프로그램이 바로 꺼지지 않게, 오류를 아래 두 함수로 보낸다.
             Application.SetUnhandledExceptionMode(UnhandledExceptionMode.CatchException);
             Application.ThreadException += Application_ThreadException;
             AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -23,7 +27,7 @@ namespace VProEditAll
         }
 
         /// <summary>
-        /// UI 스레드 예외: 메시지만 보여 주고 프로그램은 계속 실행
+        /// 화면(UI) 작업 중 난 오류: 메시지만 보여 주고 프로그램은 계속 실행한다.
         /// </summary>
         private static void Application_ThreadException(object sender, ThreadExceptionEventArgs e)
         {
@@ -32,7 +36,7 @@ namespace VProEditAll
         }
 
         /// <summary>
-        /// 그 외 스레드 예외: 복구할 수 없으므로 내용만 알림 (이후 종료됨)
+        /// 그 밖의 오류: 복구할 수 없으므로 내용만 알린다 (이후 프로그램이 종료된다).
         /// </summary>
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {

@@ -9,20 +9,32 @@ using System.Text.RegularExpressions;
 namespace VProEditAll
 {
     // =================================================================================================
-    // 261105@Claude [형식 판정] vpp 파일 형식 구분
+    // 이 파일이 하는 일: vpp 파일을 "VisionPro 로 열기 전에" 바이트로만 읽어서
+    //   1) 어떤 형식인지 (QuickBuild / Job / ToolGroup / ToolBlock)
+    //   2) 카메라·I/O 설정이 들어 있는지
+    // 를 알아낸다.
+    //
+    // [안전] 왜 열기 전에 바이트로 읽는가?
+    //   VisionPro 로 파일을 열면 그 순간 카메라·I/O 연결을 시도한다.
+    //   그래서 연결되기 전에 사용자에게 경고하려면, 파일을 글자(바이트)로만 먼저 훑어봐야 한다.
+    //   → 이 파일의 코드는 VisionPro 로 파일을 열지 않는다. (이 성질을 바꾸지 말 것)
     // =================================================================================================
+
+    /// <summary>
+    /// vpp 파일 형식
+    /// </summary>
     public enum VppKind
     {
         Unknown,        // 판정 불가 (불러온 뒤 객체로 다시 판정)
         QuickBuild,     // CogJobManager (QuickBuild 전체)
-        Job,            // CogJob (QuickBuild Job 단독 저장)
+        Job,            // CogJob (QuickBuild Job 하나만 저장한 파일)
         ToolGroup,      // CogToolGroup
         ToolBlock,      // CogToolBlock
         Unsupported     // 툴 하나만 저장한 파일 등 (예: CogAcqFifoTool)
     }
 
     /// <summary>
-    /// 261105@Claude [형식 판정] 파일을 바이트로만 읽은 결과 (VisionPro로 불러오지 않음 → 카메라/I/O 연결 없음)
+    /// 파일을 바이트로 읽은 결과
     /// </summary>
     public class VppFileInfo
     {
@@ -35,13 +47,13 @@ namespace VProEditAll
     }
 
     /// <summary>
-    /// 261105@Claude [형식 판정] vpp 파일 형식/위험 요소(카메라, I/O) 판정
+    /// vpp 파일 형식/위험 요소(카메라, I/O) 판정
     /// - 파일 앞부분에서 최상위 객체 형식 이름을 찾는다.
     /// - 파일 전체에서 AcqFifo / GigE / I/O 설정 문자열을 찾는다.
     /// </summary>
     public static class VppInspector
     {
-        private const int HeadLength = 8192;
+        private const int HeadLength = 8192;   // 형식 이름을 찾을 앞부분 길이 (바이트)
 
         public static VppFileInfo Inspect(string filePath)
         {
@@ -49,20 +61,23 @@ namespace VProEditAll
             byte[] data = File.ReadAllBytes(filePath);
             if (data.Length == 0) return info;
 
-            // BinaryFormatter 파일은 첫 바이트가 0 (SerializedStreamHeader)
+            // BinaryFormatter 파일은 첫 바이트가 0 이다.
             info.IsBinary = data[0] == 0;
 
+            // 앞부분을 글자로 바꿔서, 정규식(글자 패턴 찾기)으로 형식 이름을 찾는다.
             string head = Encoding.ASCII.GetString(data, 0, Math.Min(data.Length, HeadLength));
             Match m;
             if (info.IsBinary)
             {
                 // 바이너리: 처음 나오는 Cognex 클래스 이름이 최상위 객체
+                //   패턴 뜻: "Cognex.VisionPro" + (글자/점 여러 개) + ".Cog" + 글자 여러 개
                 m = Regex.Match(head, @"Cognex\.VisionPro[\w\.]*\.Cog\w+");
                 if (m.Success) info.RootTypeName = m.Value;
             }
             else
             {
                 // XML(SOAP): <SOAP-ENV:Body> 다음 첫 요소가 최상위 객체 (예: <a1:CogJobManager ...>)
+                // ※ 시험해 보니 VisionPro 객체는 XML 로 저장 자체가 안 되므로 실제로는 거의 없는 경우다.
                 int bodyIndex = head.IndexOf("SOAP-ENV:Body", StringComparison.Ordinal);
                 if (bodyIndex >= 0)
                 {
@@ -97,7 +112,9 @@ namespace VProEditAll
 
         /// <summary>
         /// 불러온 객체 → VppKind
-        /// ※ CogToolBlock 은 CogToolGroup 을 상속하므로 반드시 ToolBlock 을 먼저 검사한다.
+        /// [안전] CogToolBlock 은 CogToolGroup 을 상속한다 (ToolBlock 도 "ToolGroup 의 한 종류").
+        ///        그래서 ToolGroup 을 먼저 검사하면 ToolBlock 도 ToolGroup 으로 잘못 판정된다.
+        ///        → 반드시 ToolBlock 을 먼저 검사할 것.
         /// </summary>
         public static VppKind KindFromObject(object obj)
         {
@@ -109,6 +126,9 @@ namespace VProEditAll
             return VppKind.Unsupported;
         }
 
+        /// <summary>
+        /// 화면에 보여 줄 형식 이름
+        /// </summary>
         public static string DisplayName(VppKind kind)
         {
             switch (kind)
@@ -123,7 +143,8 @@ namespace VProEditAll
         }
 
         /// <summary>
-        /// 바이트 배열에서 ASCII 문자열 검색
+        /// 바이트 배열 안에 text(영문) 가 들어 있는지 찾는다.
+        /// 방법: 첫 글자가 나오는 위치를 빠르게 찾고(Array.IndexOf), 그 자리부터 나머지 글자가 같은지 비교한다.
         /// </summary>
         private static bool ContainsAscii(byte[] data, string text)
         {

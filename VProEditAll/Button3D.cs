@@ -5,12 +5,12 @@ using System.Windows.Forms;
 namespace VProEditAll
 {
     /// <summary>
-    /// 261105@Claude [버튼 입체감] 그라데이션 + 그림자로 그리는 버튼 (권장안 B)
+    /// 입체감 있는 버튼 (그림 그리는 코드만 있음. 프로그램 동작과는 관계없으므로 처음에는 건너뛰어도 된다.)
+    /// Windows 11 에서는 기본 버튼이 평평하게 보여서, 색과 그림자를 직접 그린다.
     /// - 기본   : 위(밝음) → 아래(어두움) 그라데이션 + 오른쪽 아래 그림자
-    /// - 마우스 : 옅은 파랑 그라데이션
-    /// - 눌림   : 파랑 그라데이션, 그림자 없이 1px 들어감
-    /// - 비활성 : 옅은 회색 + 회색 글자
-    /// Windows 11 테마에서는 기본 버튼 스타일(Standard/System/Popup)이 모두 평평하게 보여 직접 그림.
+    /// - 마우스 : 옅은 파랑
+    /// - 눌림   : 파랑, 그림자 없이 1px 들어감
+    /// - 비활성 : 회색 글자 (그라데이션과 그림자는 유지)
     /// </summary>
     public class Button3D : Button
     {
@@ -51,7 +51,6 @@ namespace VProEditAll
             Color top, bottom, border;
             if (!Enabled)
             {
-                // 261105@Claude [비활성 입체감] 비활성도 그라데이션을 뚜렷하게 (이전: 246→228, 테두리 185 로 거의 평평)
                 top = Color.FromArgb(250, 250, 250); bottom = Color.FromArgb(212, 212, 212); border = Color.FromArgb(150, 150, 150);
             }
             else if (pressed)
@@ -73,7 +72,7 @@ namespace VProEditAll
             }
             else
             {
-                // 261105@Claude [비활성 입체감] 비활성도 그림자 표시 (조금 옅게). 이전: 활성일 때만 그림자
+                // 그림자 (비활성일 때는 조금 옅게)
                 using (SolidBrush sh = new SolidBrush(Color.FromArgb(Enabled ? 70 : 45, 0, 0, 0)))
                     g.FillRectangle(sh, r.X + shadow, r.Y + shadow, r.Width, r.Height);
             }
