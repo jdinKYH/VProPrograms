@@ -24,6 +24,19 @@ namespace VProEditAll
         public object Root { get; private set; }     // 파일에서 불러온 최상위 객체 (형식은 Kind 로 구분)
         public VppKind Kind { get; private set; }
 
+        // Root 를 형식에 맞게 꺼내 쓰기 위한 도우미.
+        // 형식이 다르면 null 이 된다. (예: ToolGroup 파일이면 JobManager 는 null)
+        private CogJobManager JobManager
+        {
+            get { return Root as CogJobManager; }
+        }
+
+        private CogJob Job
+        {
+            get { return Root as CogJob; }
+        }
+
+        // 외부에서 new 로 만들지 못하게 막음. 대신 Load() 를 사용한다.
         private VppDocument() { }
 
         /// <summary>
@@ -36,12 +49,17 @@ namespace VProEditAll
 
             if (kind == VppKind.Unsupported || kind == VppKind.Unknown)
             {
-                string typeName = obj == null ? "null" : obj.GetType().FullName;
+                string typeName = "null";
+                if (obj != null) typeName = obj.GetType().FullName;
+
                 ReleaseObject(obj);
                 throw new NotSupportedException($"지원하지 않는 형식입니다: {typeName}\n(QuickBuild / Job / ToolGroup / ToolBlock 파일만 편집할 수 있습니다.)");
             }
 
-            VppDocument doc = new VppDocument { FilePath = filePath, Root = obj, Kind = kind };
+            VppDocument doc = new VppDocument();
+            doc.FilePath = filePath;
+            doc.Root = obj;
+            doc.Kind = kind;
             doc.StopRunning();  // 실행 중인 상태로 저장된 파일일 수 있으므로 정지
             return doc;
         }
@@ -53,7 +71,7 @@ namespace VProEditAll
         {
             get
             {
-                if (Kind == VppKind.QuickBuild) return ((CogJobManager)Root).JobCount;
+                if (Kind == VppKind.QuickBuild) return JobManager.JobCount;
                 if (Kind == VppKind.Job) return 1;
                 return 0;
             }
@@ -61,8 +79,8 @@ namespace VProEditAll
 
         public string GetJobName(int index)
         {
-            if (Kind == VppKind.QuickBuild) return ((CogJobManager)Root).Job(index).Name;
-            if (Kind == VppKind.Job) return ((CogJob)Root).Name;
+            if (Kind == VppKind.QuickBuild) return JobManager.Job(index).Name;
+            if (Kind == VppKind.Job) return Job.Name;
             return string.Empty;
         }
 
@@ -72,14 +90,10 @@ namespace VProEditAll
         /// </summary>
         public CogToolGroup GetEditSubject(int jobIndex)
         {
-            switch (Kind)
-            {
-                case VppKind.QuickBuild: return ((CogJobManager)Root).Job(jobIndex).VisionTool as CogToolGroup;
-                case VppKind.Job: return ((CogJob)Root).VisionTool as CogToolGroup;
-                case VppKind.ToolGroup:
-                case VppKind.ToolBlock: return Root as CogToolGroup;
-                default: return null;
-            }
+            if (Kind == VppKind.QuickBuild) return JobManager.Job(jobIndex).VisionTool as CogToolGroup;
+            if (Kind == VppKind.Job) return Job.VisionTool as CogToolGroup;
+            if (Kind == VppKind.ToolGroup || Kind == VppKind.ToolBlock) return Root as CogToolGroup;
+            return null;
         }
 
         /// <summary>
@@ -90,12 +104,17 @@ namespace VProEditAll
         public List<string> GetScriptErrors()
         {
             List<string> errors = new List<string>();
-            // ToolGroup/ToolBlock 파일은 JobCount 가 0 이지만 대상이 1개 있으므로 최소 1번은 돈다.
-            int count = Math.Max(1, JobCount);
+
+            // ToolGroup/ToolBlock 파일은 JobCount 가 0 이지만 검사할 대상은 1개 있다.
+            int count = JobCount;
+            if (count == 0) count = 1;
+
             for (int j = 0; j < count; j++)
             {
-                string prefix = (Kind == VppKind.QuickBuild || Kind == VppKind.Job) ? GetJobName(j) : string.Empty;
-                CollectScriptErrors(GetEditSubject(j), prefix, errors);
+                string jobName = string.Empty;
+                if (Kind == VppKind.QuickBuild || Kind == VppKind.Job) jobName = GetJobName(j);
+
+                CollectScriptErrors(GetEditSubject(j), jobName, errors);
             }
             return errors;
         }
@@ -103,41 +122,65 @@ namespace VProEditAll
         /// <summary>
         /// group 의 스크립트 오류를 errors 에 추가한다.
         /// group 안에 또 ToolGroup 이 있으면 이 함수를 다시 불러서 그 안도 검사한다 (재귀 호출).
+        /// parentPath: 오류 위치 표시용 경로 (예: "Job1 > ToolGroup > Locate")
         /// </summary>
         private static void CollectScriptErrors(CogToolGroup group, string parentPath, List<string> errors)
         {
             if (group == null) return;
-            string path = string.IsNullOrEmpty(parentPath) ? group.Name : parentPath + " > " + group.Name;
+
+            string path = group.Name;
+            if (!string.IsNullOrEmpty(parentPath)) path = parentPath + " > " + group.Name;
 
             // ScriptError 는 오류가 없어도 컴파일 기록을 담고 있다 (시험으로 확인).
             //   정상 : "-Referenced Assembly: ..." / "-Found possible Script Class: ..." (모두 '-' 로 시작)
             //   오류 : "Unable to load script code in Locate." / "Compile Error in Script: ..."
             // → '-' 로 시작하지 않는 줄이 있으면 오류로 판단한다.
+            string scriptLog = group.ScriptError;
+            if (scriptLog == null) scriptLog = string.Empty;
+
             List<string> errorLines = new List<string>();
-            foreach (string raw in (group.ScriptError ?? string.Empty).Split('\n'))
+            foreach (string raw in scriptLog.Split('\n'))
             {
                 string line = raw.Trim();
-                if (line.Length == 0 || line.StartsWith("-")) continue;
+                if (line.Length == 0) continue;
+                if (line.StartsWith("-")) continue;
                 errorLines.Add(line);
             }
+
             if (errorLines.Count > 0)
             {
-                string summary = errorLines.Find(l => l.IndexOf("Compile Error", StringComparison.OrdinalIgnoreCase) >= 0) ?? errorLines[0];
+                // "Compile Error" 가 들어 있는 줄을 대표로 보여 준다. 없으면 첫 줄.
+                string summary = errorLines[0];
+                foreach (string line in errorLines)
+                {
+                    if (line.IndexOf("Compile Error", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        summary = line;
+                        break;
+                    }
+                }
                 errors.Add(path + " : " + summary);
             }
 
+            // 안에 들어 있는 ToolGroup/ToolBlock 도 검사
             foreach (ICogTool tool in group.Tools)
             {
-                if (tool is CogToolGroup sub) CollectScriptErrors(sub, path, errors);   // ToolBlock 포함
+                CogToolGroup subGroup = tool as CogToolGroup;   // ToolBlock 도 여기 포함됨
+                if (subGroup != null) CollectScriptErrors(subGroup, path, errors);
             }
         }
 
         /// <summary>
-        /// QuickBuild 의 I/O 사용 설정 (QuickBuild 가 아니면 null)
+        /// QuickBuild 의 I/O 사용 설정.
+        /// bool? 는 true / false / null 세 가지 값을 가질 수 있다. QuickBuild 가 아니면 null (해당 없음).
         /// </summary>
         public bool? IOEnabled
         {
-            get { return Kind == VppKind.QuickBuild ? (bool?)((CogJobManager)Root).IOEnable : null; }
+            get
+            {
+                if (Kind == VppKind.QuickBuild) return JobManager.IOEnable;
+                return null;
+            }
         }
 
         /// <summary>
@@ -162,16 +205,18 @@ namespace VProEditAll
             {
                 if (File.Exists(tempPath)) File.Delete(tempPath);
 
+                // 1) 임시 파일에 저장
                 CogSerializer.SaveObjectToFile(Root, tempPath, typeof(BinaryFormatter), options);
 
+                // 2) 원본과 교체
                 if (File.Exists(fullPath))
                 {
                     backupPath = fullPath + ".bak";
-                    File.Replace(tempPath, fullPath, backupPath, true);   // 기존 .bak 은 덮어씀
+                    File.Replace(tempPath, fullPath, backupPath, true);   // 원본 → .bak (기존 .bak 은 덮어씀)
                 }
                 else
                 {
-                    File.Move(tempPath, fullPath);
+                    File.Move(tempPath, fullPath);                         // 새 파일이면 이름만 바꿈
                 }
 
                 FilePath = fullPath;
@@ -179,8 +224,15 @@ namespace VProEditAll
             }
             finally
             {
-                // 저장 실패 시 임시 파일 정리 (원본은 그대로 남아 있음)
-                try { if (File.Exists(tempPath)) File.Delete(tempPath); } catch { }
+                // 3) 저장에 실패했으면 임시 파일이 남아 있으므로 지운다 (원본은 그대로 남아 있음)
+                try
+                {
+                    if (File.Exists(tempPath)) File.Delete(tempPath);
+                }
+                catch
+                {
+                    // 임시 파일을 못 지워도 원본에는 영향 없음
+                }
             }
         }
 
@@ -191,10 +243,13 @@ namespace VProEditAll
         {
             try
             {
-                if (Kind == VppKind.QuickBuild) ((CogJobManager)Root).Stop();
-                else if (Kind == VppKind.Job) ((CogJob)Root).Stop();
+                if (Kind == VppKind.QuickBuild) JobManager.Stop();
+                else if (Kind == VppKind.Job) Job.Stop();
             }
-            catch { }   // [안전] 정리 중 오류는 무시 (뒤의 정리 단계가 계속 실행되도록)
+            catch
+            {
+                // [안전] 정리 중 오류는 무시 (뒤의 정리 단계가 계속 실행되도록)
+            }
         }
 
         /// <summary>
@@ -209,15 +264,25 @@ namespace VProEditAll
             Root = null;
         }
 
+        /// <summary>
+        /// 불러온 객체를 형식에 맞는 방법으로 정리한다.
+        /// </summary>
         private static void ReleaseObject(object obj)
         {
             try
             {
-                if (obj is CogJobManager jm) jm.Shutdown();
-                else if (obj is CogJob job) job.Shutdown();
-                else if (obj is IDisposable d) d.Dispose();
+                CogJobManager jobManager = obj as CogJobManager;
+                CogJob job = obj as CogJob;
+                IDisposable disposable = obj as IDisposable;
+
+                if (jobManager != null) jobManager.Shutdown();
+                else if (job != null) job.Shutdown();
+                else if (disposable != null) disposable.Dispose();
             }
-            catch { }   // [안전] 정리 중 오류는 무시
+            catch
+            {
+                // [안전] 정리 중 오류는 무시
+            }
         }
     }
 }

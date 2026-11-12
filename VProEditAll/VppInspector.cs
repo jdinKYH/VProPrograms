@@ -65,14 +65,15 @@ namespace VProEditAll
             info.IsBinary = data[0] == 0;
 
             // 앞부분을 글자로 바꿔서, 정규식(글자 패턴 찾기)으로 형식 이름을 찾는다.
-            string head = Encoding.ASCII.GetString(data, 0, Math.Min(data.Length, HeadLength));
-            Match m;
+            int headLength = Math.Min(data.Length, HeadLength);
+            string head = Encoding.ASCII.GetString(data, 0, headLength);
+
             if (info.IsBinary)
             {
                 // 바이너리: 처음 나오는 Cognex 클래스 이름이 최상위 객체
                 //   패턴 뜻: "Cognex.VisionPro" + (글자/점 여러 개) + ".Cog" + 글자 여러 개
-                m = Regex.Match(head, @"Cognex\.VisionPro[\w\.]*\.Cog\w+");
-                if (m.Success) info.RootTypeName = m.Value;
+                Match match = Regex.Match(head, @"Cognex\.VisionPro[\w\.]*\.Cog\w+");
+                if (match.Success) info.RootTypeName = match.Value;
             }
             else
             {
@@ -81,8 +82,10 @@ namespace VProEditAll
                 int bodyIndex = head.IndexOf("SOAP-ENV:Body", StringComparison.Ordinal);
                 if (bodyIndex >= 0)
                 {
-                    m = new Regex(@"<a\d+:(Cog\w+)").Match(head, bodyIndex);
-                    if (m.Success) info.RootTypeName = m.Groups[1].Value;
+                    //   패턴 뜻: "<a" + 숫자 + ":" + (Cog 로 시작하는 이름)  → 괄호 안 부분이 Groups[1]
+                    Regex soapPattern = new Regex(@"<a\d+:(Cog\w+)");
+                    Match match = soapPattern.Match(head, bodyIndex);
+                    if (match.Success) info.RootTypeName = match.Groups[1].Value;
                 }
             }
 

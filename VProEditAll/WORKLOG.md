@@ -118,3 +118,23 @@ VProEditorGroup1 을 바탕으로 새 프로젝트로 작성. 장비 PC 에서�
   - 확인: 주석만 바꾼 상태로 Release 빌드 → 실행 파일이 원본과 바이트 단위로 같음 (동작 변경 0)
 - 신뢰 경고 문구 추가 (vpp 파일은 프로그램 코드를 포함할 수 있음): 파일 선택 창 제목 / 초기 상태줄 / 카메라·I/O 경고창
 - 확인: GitHub 저장소(jdinKYH/VProPrograms)가 공개 상태임 → 문서에 장비·고객 정보 추가하지 않음
+
+### B단계: 쉬운 문법 · 함수 나누기 (동작 동일 + 작은 보완 2건)
+- 문법: `is X x` → `as` + null 확인, 람다·`?.`·`??`·`out _`·인라인 `out` 선언 → 기본 문법, 짧은 변수명 풀어 씀
+- 함수 나누기: 불러오기(95줄)를 ①~⑦ 단계 함수로 (`LoadNewFile` / `SelectVppFile` / `InspectFile` / `LoadFile` / `ShowLoadResult` …),
+  저장은 `SelectSavePath` / `ShowSaveDoneMessage` / `ConfirmMinimumSave` 로 분리
+- 반복 제거: Subject 끊기(`ClearEditorSubject`), 편집 화면 추가(`AddEditor`), 저장 완료 메시지, `SetBusy(false)` 중복 호출
+- `VppDocument`: `JobManager` / `Job` 도우미 속성으로 `((CogJobManager)Root)` 형변환 반복 제거. 공개 함수 이름은 그대로
+- 보완 1: 불러오기·저장 중에는 창 닫기를 막음 (`_working`). `SetBusy` 의 `DoEvents` 때문에 작업 중 종료가 처리되면
+  닫힌 화면에 불러오거나 카메라 해제 뒤 카메라 파일을 불러올 수 있었음
+- 보완 2: 종료 시 파일 정리(`CloseCurrent`)에서 오류가 나도 카메라 해제(`ReleaseCameras`)는 실행되도록 분리
+- 변경하지 않음: 안전 목록 8개(README), `Button3D.cs`
+
+### B단계 확인 (QuickBuild 실행 중이라 카메라 파일은 불러오지 않음, 모두 사본으로)
+- 빌드: 오류·경고 없음
+- 회귀 비교(수정 전 ↔ 후 같은 시험 도구): vpp 47개 바이트 판정 + 카메라·I/O 없는 12개(ToolGroup 11, ToolBlock 1) 불러오기/저장/백업/다시 불러오기 → 결과 완전히 같음
+- 카메라 없는 시험용 QuickBuild(Job 2개) / Job / ToolBlock 파일을 만들어 비교 → 결과 같음
+- 화면 시험(MainForm 직접 구동): 초기 빈 화면, QuickBuild 로드(Job 콤보 2개, Job 전환 시 편집 화면 다시 연결·버튼 숨김 유지),
+  ToolBlock 로드(CogToolBlockEditV2), 툴바 열기/저장/다른 이름으로 저장 숨김·실행/루프 표시, 저장(.bak), 작업 중 종료 막기, 정상 종료 → 모두 정상
+- 남은 확인 (사용자): 장비 PC 에서 QuickBuild 종료 후 카메라 파일 로드 → 종료 → QuickBuild 카메라 정상 / 버튼 클릭 흐름(경고창·저장 확인창·Minimum 확인창)
+- 참고: I/O 를 쓰지 않는 QuickBuild/Job 파일에도 I/O 설정 문자열이 들어 있어, QuickBuild/Job 파일은 항상 I/O 경고가 뜬다 (기존 동작)

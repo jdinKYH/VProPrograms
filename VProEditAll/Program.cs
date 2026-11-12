@@ -40,8 +40,12 @@ namespace VProEditAll
         /// </summary>
         private static void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
+            string message = string.Empty;
             Exception ex = e.ExceptionObject as Exception;
-            MessageBox.Show($"복구할 수 없는 오류가 발생해 프로그램을 종료합니다:\n{(ex != null ? ex.Message : e.ExceptionObject?.ToString())}",
+            if (ex != null) message = ex.Message;
+            else if (e.ExceptionObject != null) message = e.ExceptionObject.ToString();
+
+            MessageBox.Show($"복구할 수 없는 오류가 발생해 프로그램을 종료합니다:\n{message}",
                 "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }

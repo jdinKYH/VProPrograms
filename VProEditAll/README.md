@@ -34,14 +34,14 @@ VisionPro vpp 파일(QuickBuild / Job / ToolGroup / ToolBlock)을 불러와 편�
 [로드] 버튼을 누르면 일어나는 일:
 
 ```
-MainForm.BtnLoad_Click
- ├─ 열린 파일 저장 확인            (MainForm.ConfirmCloseCurrent)
- ├─ 파일 선택
- ├─ 바이트로 형식/카메라/I/O 확인  (VppInspector.Inspect)        ← VisionPro 로 열지 않음
- ├─ 카메라/I/O 경고               (MainForm.ConfirmHardwareWarning)
- ├─ 이전 파일 정리                (MainForm.CloseCurrent)
- ├─ VisionPro 로 불러오기          (VppDocument.Load)             ← 여기서 카메라 연결 시도
- └─ 편집 화면 연결 / 결과 표시     (MainForm.FillJobs → BindEditor)
+MainForm.BtnLoad_Click → LoadNewFile
+ ├─ ① 열린 파일 저장 확인            ConfirmCloseCurrent
+ ├─ ② 파일 선택                     SelectVppFile
+ ├─ ③ 바이트로 형식/카메라/I/O 확인  InspectFile → VppInspector.Inspect   ← VisionPro 로 열지 않음
+ ├─ ④ 카메라/I/O 경고               ConfirmHardwareWarning
+ ├─ ⑤ 이전 파일 정리                CloseCurrent
+ ├─ ⑥ VisionPro 로 불러오기          LoadFile → VppDocument.Load          ← 여기서 카메라 연결 시도
+ └─ ⑦ 편집 화면 연결 / 결과 표시     FillJobs → BindEditor, ShowLoadResult
 ```
 
 ---
