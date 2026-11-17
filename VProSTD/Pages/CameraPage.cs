@@ -1,6 +1,7 @@
 using Cognex.VisionPro;
 using Cognex.VisionPro.Display;
 using System;
+using System.Collections.Generic;
 using System.Windows.Forms;
 
 namespace VProSTD
@@ -8,7 +9,9 @@ namespace VProSTD
     /// <summary>
     /// [CONNECT CAMERA] 탭: 이미지 입력 설정
     ///   왼쪽   : 취득/불러온 이미지 확인 화면 (CogDisplay)
-    ///   오른쪽 : 카메라 모델, CONNECT / TRIGGER, 노출, File Mode (Single Image / Image Folder)
+    ///   오른쪽 : 카메라 모델, SEARCH / 카메라 선택 / CONNECT / TRIGGER, 노출, SAVE CAMERA,
+    ///            File Mode (Single Image / Image Folder)
+    /// 카메라 설정은 레시피와 따로 system.xml 에 저장한다 (SAVE CAMERA). 노출만 레시피별 (레시피 SAVE).
     /// </summary>
     public partial class CameraPage : UserControl
     {
@@ -52,14 +55,15 @@ namespace VProSTD
         private void UpdateCameraInfo()
         {
             updating = true;
-            if (app.Acq == null)
+            if (app.Camera == null)
             {
-                lblCameraModel.Text = "...";
+                string saved = app.System.Camera.Serial;
+                lblCameraModel.Text = string.IsNullOrEmpty(saved) ? "..." : "저장: " + saved;
             }
             else
             {
-                lblCameraModel.Text = app.Acq.CameraName;
-                double? exposure = app.Acq.Exposure;
+                lblCameraModel.Text = app.Camera.CameraName;
+                double? exposure = app.Camera.Exposure;
                 if (exposure != null)
                 {
                     decimal value = (decimal)exposure.Value;
@@ -83,9 +87,12 @@ namespace VProSTD
             btnSingleImage.Enabled = fileMode;
             btnImageFolder.Enabled = fileMode;
 
+            btnSearch.Enabled = !fileMode;
+            comboCamera.Enabled = !fileMode;
             btnConnect.Enabled = !fileMode;
             btnTrigger.Enabled = !fileMode && connected;
-            numExposure.Enabled = !fileMode && connected && app.Acq.Exposure != null;
+            numExposure.Enabled = !fileMode && connected && app.Camera.Exposure != null;
+            btnCameraSave.Enabled = !fileMode && connected;
         }
 
         private void ShowImage(ICogImage image)
@@ -96,11 +103,66 @@ namespace VProSTD
 
         #region 카메라
 
-        private void btnConnect_Click(object sender, EventArgs e)
+        /// <summary>
+        /// SEARCH: 연결된 카메라를 찾아 목록에 넣고, 저장된 카메라가 있으면 그것을 고른다.
+        /// </summary>
+        private void btnSearch_Click(object sender, EventArgs e)
         {
+            string message = "카메라를 검색합니다.\n\n" +
+                             "장비 PC 에서는 QuickBuild / 생산 프로그램을 먼저 종료하세요.\n" +
+                             "※ 카메라는 이 프로그램을 종료해야 해제됩니다.\n\n계속할까요?";
+            if (!app.Confirm(message)) return;
+
+            List<CameraInfo> cameras;
+            Cursor = Cursors.WaitCursor;
             try
             {
-                app.ConnectCamera();
+                cameras = app.FindCameras();
+            }
+            catch (Exception ex)
+            {
+                app.WriteLog("CAMERA: 검색 실패 - " + ex.Message, LogKind.Ng);
+                return;
+            }
+            finally
+            {
+                Cursor = Cursors.Default;
+            }
+
+            comboCamera.Items.Clear();
+            foreach (CameraInfo camera in cameras)
+            {
+                comboCamera.Items.Add(camera);
+                if (string.Equals(camera.Serial, app.System.Camera.Serial, StringComparison.OrdinalIgnoreCase)) comboCamera.SelectedItem = camera;
+            }
+            if (comboCamera.SelectedIndex < 0 && comboCamera.Items.Count > 0) comboCamera.SelectedIndex = 0;
+
+            app.WriteLog("CAMERA: " + cameras.Count + " 대 찾음");
+        }
+
+        /// <summary>
+        /// CONNECT: 목록에서 고른 카메라 (고르지 않았으면 저장된 카메라, 그것도 없으면 첫 번째 카메라)
+        /// </summary>
+        private void btnConnect_Click(object sender, EventArgs e)
+        {
+            CameraSettings saved = app.System.Camera;
+            CameraSettings settings = new CameraSettings();
+            settings.Type = saved.Type;
+            settings.Serial = saved.Serial;
+            settings.VideoFormat = saved.VideoFormat;
+            settings.TimeoutMs = saved.TimeoutMs;
+
+            CameraInfo selected = comboCamera.SelectedItem as CameraInfo;
+            if (selected != null && !string.Equals(selected.Serial, saved.Serial, StringComparison.OrdinalIgnoreCase))
+            {
+                // 저장된 것과 다른 카메라: 영상 형식은 그 카메라의 첫 번째 것
+                settings.Serial = selected.Serial;
+                settings.VideoFormat = "";
+            }
+
+            try
+            {
+                app.ConnectCamera(settings);
             }
             catch (Exception ex)
             {
@@ -123,20 +185,38 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 노출을 바꾸면 바로 카메라에 적용한다. (레시피 SAVE 때 Acq.vpp 에 저장됨)
+        /// 노출을 바꾸면 바로 카메라에 적용한다. 레시피별 값이므로 RECIPE 탭 SAVE 때 레시피 설정에 저장된다.
         /// </summary>
         private void numExposure_ValueChanged(object sender, EventArgs e)
         {
-            if (updating || app == null || app.Acq == null) return;
+            if (updating || app == null || app.Camera == null) return;
 
             try
             {
-                app.Acq.Exposure = (double)numExposure.Value;
+                app.SetExposure((double)numExposure.Value);
             }
             catch (Exception ex)
             {
                 app.WriteLog("CAMERA: 노출 변경 실패 - " + ex.Message, LogKind.Warning);
             }
+        }
+
+        /// <summary>
+        /// SAVE CAMERA: 지금 연결된 카메라(시리얼, 영상 형식)를 system.xml 에 저장한다.
+        /// </summary>
+        private void btnCameraSave_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                app.SaveCameraSettings();
+                MessageBox.Show("카메라 설정을 저장했습니다.\n" + app.Camera.CameraName + "\n" + app.Camera.VideoFormat +
+                                "\n\n(노출은 레시피별이므로 RECIPE 탭에서 SAVE 하세요)", "SAVE CAMERA", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("저장할 수 없습니다:\n" + ex.Message, "SAVE CAMERA", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+            UpdateCameraInfo();
         }
 
         #endregion

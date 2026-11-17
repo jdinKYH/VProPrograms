@@ -6,7 +6,7 @@ namespace VProSTD
 {
     /// <summary>
     /// 카운트 카드: 위에 작은 제목(Title), 아래에 큰 숫자(Value) 를 그린다.
-    /// AccentColor 를 지정하면 그 색으로 테두리를 2px 로 그린다 (NG = 빨강, YIELD = 주황).
+    /// AccentColor 를 지정하면 그 색으로 테두리를 2px 로 그린다 (OK = 초록, NG = 빨강).
     /// </summary>
     public class CountCard : Control
     {

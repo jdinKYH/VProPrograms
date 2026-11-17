@@ -1,6 +1,28 @@
 # VProSTD WORKLOG
 
-VProEditAll 을 바탕으로 만든 검사 프로그램. 이미지 취득(Acq.vpp)과 검사(Job.vpp = ToolBlock)를 분리.
+VProEditAll 을 바탕으로 만든 검사 프로그램. 이미지 취득(카메라, 코드로 연결)과 검사(레시피 .vpp = ToolBlock)를 분리.
+
+## 2026-11-17 레시피 파일 단위 변경, 카메라 코드 연결
+
+### 결정 사항
+| # | 항목 | 적용 |
+|---|---|---|
+| 1 | 레시피 단위 | 폴더(Job.vpp + Acq.vpp + recipe.xml) → **사용자가 이름 붙인 `.vpp` 파일** + `<이름>.recipe.xml` |
+| 2 | 카메라 | Acq.vpp 불러오기 삭제. `CameraSettings`(system.xml) 값으로 코드에서 직접 AcqFifo 생성 (`CognexCameraSource`) |
+| 3 | 카메라 관리 | 레시피와 분리. CONNECT CAMERA 탭 SEARCH / 카메라 선택 / CONNECT / SAVE CAMERA. 레시피를 바꿔도 연결 유지 |
+| 4 | 노출 | 레시피별 (`RecipeSettings.ExposureMs`). 레시피 불러오기 / 카메라 연결 때 적용 |
+| 5 | 카메라 종류 | `ICameraSource` 인터페이스. 지금은 VisionPro 카메라(GigE), 나중에 Euresys CameraLink 에어리어 추가 |
+| 6 | 트리거 | 소프트웨어 트리거 (Manual, `Acquire`) |
+
+### 확인 결과 (카메라 없이)
+- 빌드: 오류·경고 없음
+- 레시피 목록: Recipe Path 의 ToolBlock `.vpp` 만 나옴. CogAcqFifoTool `.vpp` 는 빠짐
+- NEW / COPY / DELETE(`.vpp`·`.bak`·설정 파일만 삭제), 중복 이름 거부, `.vpp` 붙여 입력해도 처리
+- 레시피 노출 저장/읽기, 카메라 항목이 없는 기존 system.xml 읽기 (기본값으로 채움)
+
+### 아직 확인하지 못한 것
+- SEARCH / CONNECT / TRIGGER / 노출 변경 / SAVE CAMERA / 레시피 바꿀 때 노출 적용 / 종료 시 카메라 해제 (장비 PC)
+- 화면: RECIPE 탭 SAVE 파일 창, CONNECT CAMERA 탭 새 버튼 배치
 
 ## 2026-11-17 1~8단계 구현
 

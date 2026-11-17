@@ -27,6 +27,8 @@ namespace VProSTD
 
         public string LastRecipe = "";       // 마지막으로 불러온 레시피 (다음 실행 때 자동으로 불러옴)
 
+        public CameraSettings Camera = new CameraSettings();   // CONNECT CAMERA 탭 SAVE 로 저장
+
         /// <summary>
         /// 설정 파일 위치: 실행 파일 옆 system.xml
         /// </summary>
@@ -60,6 +62,7 @@ namespace VProSTD
             }
 
             if (settings == null) settings = new SystemSettings();
+            if (settings.Camera == null) settings.Camera = new CameraSettings();
             settings.FillEmptyPaths();
             return settings;
         }
@@ -112,5 +115,23 @@ namespace VProSTD
                 // 만들 수 없는 경로(없는 드라이브 등)는 사용할 때 오류로 알린다
             }
         }
+    }
+
+    /// <summary>
+    /// 카메라 연결 설정 (레시피와 무관, 장비마다 하나).
+    /// .vpp(CogAcqFifoTool) 를 쓰지 않고 이 값으로 코드에서 직접 카메라를 연다.
+    /// 노출은 제품마다 다르므로 여기 두지 않고 레시피 설정(RecipeSettings.ExposureMs)에 둔다.
+    /// </summary>
+    public class CameraSettings
+    {
+        public string Type = CameraTypes.CognexGigE;   // 카메라 종류 (나중에 Euresys CameraLink 추가)
+        public string Serial = "";                     // 카메라 시리얼. 비우면 첫 번째 카메라
+        public string VideoFormat = "";                // 비우면 카메라의 첫 번째 영상 형식
+        public int TimeoutMs = 2000;                   // 1장 취득 제한 시간
+    }
+
+    public static class CameraTypes
+    {
+        public const string CognexGigE = "CognexGigE";
     }
 }

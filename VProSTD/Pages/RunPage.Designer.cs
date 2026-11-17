@@ -103,8 +103,9 @@
             this.cardTotal.TabIndex = 1;
             this.cardTotal.Title = "TOTAL COUNT";
             //
-            // cardOk : OK 숫자는 초록
+            // cardOk : OK 는 초록 테두리 + 초록 숫자
             //
+            this.cardOk.AccentColor = System.Drawing.Color.FromArgb(((int)(((byte)(61)))), ((int)(((byte)(220)))), ((int)(((byte)(151)))));
             this.cardOk.Location = new System.Drawing.Point(500, 0);
             this.cardOk.Name = "cardOk";
             this.cardOk.Size = new System.Drawing.Size(130, 90);
@@ -122,9 +123,8 @@
             this.cardNg.Title = "NG COUNT";
             this.cardNg.ValueColor = System.Drawing.Color.FromArgb(((int)(((byte)(255)))), ((int)(((byte)(99)))), ((int)(((byte)(88)))));
             //
-            // cardYield : YIELD 는 주황 테두리 + 주황 숫자
+            // cardYield : YIELD 는 일반 테두리(TOTAL 과 같음) + 주황 숫자
             //
-            this.cardYield.AccentColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(180)))), ((int)(((byte)(0)))));
             this.cardYield.Location = new System.Drawing.Point(362, 98);
             this.cardYield.Name = "cardYield";
             this.cardYield.Size = new System.Drawing.Size(130, 90);
@@ -228,7 +228,7 @@
             this.btnModelLoad.Name = "btnModelLoad";
             this.btnModelLoad.Size = new System.Drawing.Size(220, 48);
             this.btnModelLoad.TabIndex = 10;
-            this.btnModelLoad.Text = "Model Load";
+            this.btnModelLoad.Text = "Load Recipe";
             this.btnModelLoad.UseVisualStyleBackColor = false;
             this.btnModelLoad.Click += new System.EventHandler(this.btnModelLoad_Click);
             //

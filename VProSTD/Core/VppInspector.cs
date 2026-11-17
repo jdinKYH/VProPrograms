@@ -18,8 +18,8 @@ namespace VProSTD
     public enum VppKind
     {
         Unknown,        // 판정 불가
-        ToolBlock,      // CogToolBlock  → Job.vpp
-        AcqFifo,        // CogAcqFifoTool → Acq.vpp
+        ToolBlock,      // CogToolBlock   → 레시피 .vpp
+        AcqFifo,        // CogAcqFifoTool → 카메라 설정 파일 (VProSTD 는 쓰지 않음, 레시피 목록에서 뺌)
         Unsupported     // 그 밖의 형식 (QuickBuild, Job, ToolGroup 등)
     }
 
@@ -51,6 +51,33 @@ namespace VProSTD
             info.HasAcqFifo = ContainsAscii(data, "CogAcqFifo");
             info.HasIOSettings = ContainsAscii(data, "CogIODiscreteInfoList") || ContainsAscii(data, "CogIOTCPIPInfoList");
             return info;
+        }
+
+        /// <summary>
+        /// 앞부분(8KB)만 읽어서 형식만 알아낸다. 레시피 목록처럼 파일이 여러 개일 때 쓴다.
+        /// </summary>
+        public static VppKind InspectKind(string filePath)
+        {
+            try
+            {
+                byte[] data = new byte[HeadLength];
+                int length;
+                using (FileStream stream = File.OpenRead(filePath))
+                {
+                    length = stream.Read(data, 0, data.Length);
+                }
+                string head = Encoding.ASCII.GetString(data, 0, length);
+                Match match = Regex.Match(head, @"Cognex\.VisionPro[\w\.]*\.Cog\w+");
+                return KindFromTypeName(match.Success ? match.Value : "");
+            }
+            catch (IOException)
+            {
+                return VppKind.Unknown;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return VppKind.Unknown;
+            }
         }
 
         public static VppKind KindFromTypeName(string typeName)

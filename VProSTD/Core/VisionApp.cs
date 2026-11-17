@@ -23,12 +23,12 @@ namespace VProSTD
 
         // 현재 레시피 (불러오지 않았으면 RecipeName 이 null)
         public string RecipeName { get; private set; }
-        public string RecipeFolder { get; private set; }
+        public string RecipeFilePath { get; private set; }            // <Recipe Path>\<이름>.vpp
         public RecipeSettings Recipe { get; private set; }
         public JobRunner Job { get; private set; }
 
-        // 이미지 입력
-        public AcqImageSource Acq { get; private set; }               // CONNECT 전에는 null
+        // 이미지 입력 (카메라는 레시피와 따로 관리한다. 레시피를 바꿔도 연결은 그대로)
+        public ICameraSource Camera { get; private set; }             // CONNECT 전에는 null
         public FileImageSource Files { get; private set; }
 
         // 카운트 (오류는 NG 로 센다)
@@ -68,7 +68,7 @@ namespace VProSTD
 
         public bool IsCameraConnected
         {
-            get { return Acq != null && Acq.IsConnected; }
+            get { return Camera != null && Camera.IsConnected; }
         }
 
         /// <summary>
@@ -90,46 +90,47 @@ namespace VProSTD
         /// </summary>
         public bool LoadRecipe(string name)
         {
-            string folder = RecipeManager.FolderOf(System.RecipePath, name);
-            string jobPath = Path.Combine(folder, RecipeManager.JobFileName);
+            string filePath = RecipeManager.FileOf(System.RecipePath, name);
+            string fileName = Path.GetFileName(filePath);
 
             // ① 바이트로만 확인 (VisionPro 로 열지 않음)
-            VppFileInfo info = VppInspector.Inspect(jobPath);
+            VppFileInfo info = VppInspector.Inspect(filePath);
             if (info.Kind != VppKind.ToolBlock && info.Kind != VppKind.Unknown)
             {
-                WriteLog("Job.vpp 가 ToolBlock 파일이 아닙니다: " + info.RootTypeName, LogKind.Ng);
+                WriteLog(fileName + " 이(가) ToolBlock 파일이 아닙니다: " + info.RootTypeName, LogKind.Ng);
                 return false;
             }
 
-            // ② 카메라 / I/O 설정이 들어 있으면 경고 (설계상 Job.vpp 에는 취득이 없어야 함)
+            // ② 카메라 / I/O 설정이 들어 있으면 경고 (설계상 레시피에는 취득이 없어야 함)
             if (info.HasAcqFifo || info.HasIOSettings)
             {
-                string message = name + " 의 Job.vpp 에 카메라(AcqFifo) 또는 I/O 설정이 들어 있습니다.\n" +
+                string message = fileName + " 에 카메라(AcqFifo) 또는 I/O 설정이 들어 있습니다.\n" +
                                  "불러오면 카메라·I/O 에 연결을 시도합니다.\n" +
-                                 "(VProSTD 는 취득을 Acq.vpp 로 분리하는 것이 원칙입니다)\n\n계속 불러올까요?";
+                                 "(VProSTD 는 카메라를 CONNECT CAMERA 탭에서 따로 연결하는 것이 원칙입니다.\n" +
+                                 " QuickBuild 에서 ToolBlock 안의 AcqFifo 를 지우고 다시 저장하세요)\n\n계속 불러올까요?";
                 if (!Confirm(message)) return false;
                 _cameraUsed = true;
             }
 
-            // ③ 이전 레시피 닫기 (카메라 설정도 레시피 것이므로 함께 닫는다)
+            // ③ 이전 레시피 닫기 (카메라는 레시피와 따로이므로 연결을 유지한다)
             UnloadRecipe();
-            DisconnectCamera();
 
             // ④ 불러오기
-            object obj = VppFile.Load(jobPath);
+            object obj = VppFile.Load(filePath);
             CogToolBlock toolBlock = obj as CogToolBlock;
             if (toolBlock == null)
             {
                 VppFile.Release(obj);
-                WriteLog("Job.vpp 를 ToolBlock 으로 불러올 수 없습니다.", LogKind.Ng);
+                WriteLog(fileName + " 을(를) ToolBlock 으로 불러올 수 없습니다.", LogKind.Ng);
                 return false;
             }
 
-            Job = new JobRunner(toolBlock, jobPath);
+            Job = new JobRunner(toolBlock, filePath);
             RecipeName = name;
-            RecipeFolder = folder;
-            Recipe = RecipeManager.LoadSettings(folder);
+            RecipeFilePath = filePath;
+            Recipe = RecipeManager.LoadSettings(RecipeManager.SettingsFileOf(System.RecipePath, name));
             RestoreImageSource();
+            ApplyRecipeExposure();
 
             System.LastRecipe = name;
             SaveSystemQuietly();
@@ -160,47 +161,45 @@ namespace VProSTD
             Job.Dispose();
             Job = null;
             RecipeName = null;
-            RecipeFolder = null;
+            RecipeFilePath = null;
             Recipe = new RecipeSettings();
 
             if (RecipeChanged != null) RecipeChanged();
         }
 
         /// <summary>
-        /// 현재 레시피 저장: Job.vpp + (CONNECT 했으면) Acq.vpp + recipe.xml
-        /// 저장할 때마다 이전 파일이 .bak 으로 1개 남는다.
+        /// 현재 레시피 저장: <이름>.vpp + <이름>.recipe.xml (노출 포함)
+        /// 저장할 때마다 이전 .vpp 가 .bak 으로 1개 남는다.
         /// </summary>
         public void SaveRecipe()
         {
             if (Job == null) throw new InvalidOperationException("불러온 레시피가 없습니다.");
 
             VppFile.Save(Job.ToolBlock, Job.FilePath, false);
-            if (Acq != null) Acq.Save(Path.Combine(RecipeFolder, RecipeManager.AcqFileName));
 
             Recipe.LastImagePath = Files.SourcePath ?? "";
-            RecipeManager.SaveSettings(RecipeFolder, Recipe);
+            RecipeManager.SaveSettings(RecipeManager.SettingsFileOf(System.RecipePath, RecipeName), Recipe);
 
             WriteLog("RECIPE: '" + RecipeName + "' 저장");
         }
 
         /// <summary>
-        /// 다른 이름으로 저장: Recipe Path 아래 name 폴더에 저장하고, 그 레시피를 현재 레시피로 바꾼다.
-        /// 폴더에 이미 파일이 있으면 .bak 을 남기고 덮어쓴다.
+        /// 다른 이름으로 저장: Recipe Path 에 <name>.vpp 로 저장하고, 그 레시피를 현재 레시피로 바꾼다.
+        /// 같은 이름의 파일이 있으면 .bak 을 남기고 덮어쓴다.
         /// </summary>
         public void SaveRecipeAs(string name)
         {
             if (Job == null) throw new InvalidOperationException("불러온 레시피가 없습니다.");
 
-            string folder = RecipeManager.FolderOf(System.RecipePath, name);
-            Directory.CreateDirectory(folder);
+            Directory.CreateDirectory(System.RecipePath);
 
             string oldName = RecipeName;
-            string oldFolder = RecipeFolder;
+            string oldFilePath = RecipeFilePath;
             string oldJobPath = Job.FilePath;
 
-            Job.FilePath = Path.Combine(folder, RecipeManager.JobFileName);
+            Job.FilePath = RecipeManager.FileOf(System.RecipePath, name);
             RecipeName = name;
-            RecipeFolder = folder;
+            RecipeFilePath = Job.FilePath;
             try
             {
                 SaveRecipe();
@@ -210,7 +209,7 @@ namespace VProSTD
                 // 저장에 실패하면 현재 레시피를 원래 이름으로 되돌린다
                 Job.FilePath = oldJobPath;
                 RecipeName = oldName;
-                RecipeFolder = oldFolder;
+                RecipeFilePath = oldFilePath;
                 throw;
             }
 
@@ -222,16 +221,25 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 레시피에 기억된 마지막 이미지 파일/폴더를 다시 고른다 (없어졌으면 무시).
+        /// 레시피에 기억된 마지막 이미지 파일/폴더를 다시 고른다.
+        /// 레시피에 기억된 것이 없거나 없어졌으면, 지금 골라 둔 이미지를 그대로 둔다
+        /// (레시피를 불러오기 전에 Single Image / Image Folder 를 골랐어도 지워지지 않게).
         /// </summary>
         private void RestoreImageSource()
         {
-            Files = new FileImageSource();
             string path = Recipe.LastImagePath;
             if (string.IsNullOrEmpty(path)) return;
 
-            if (Directory.Exists(path)) Files.SetFolder(path);
-            else if (File.Exists(path)) Files.SetSingleFile(path);
+            if (Directory.Exists(path))
+            {
+                Files = new FileImageSource();
+                Files.SetFolder(path);
+            }
+            else if (File.Exists(path))
+            {
+                Files = new FileImageSource();
+                Files.SetSingleFile(path);
+            }
         }
 
         /// <summary>
@@ -255,11 +263,22 @@ namespace VProSTD
         #region 카메라
 
         /// <summary>
-        /// 카메라 연결: 현재 레시피의 Acq.vpp 를 불러온다. 없으면 첫 번째 카메라로 새로 만든다.
+        /// 연결된 카메라 목록 (CONNECT CAMERA 탭 SEARCH).
+        /// [안전] 카메라를 검색하는 것만으로 카메라 드라이버가 열리므로 종료 시 해제 대상으로 표시한다.
         /// </summary>
-        public void ConnectCamera()
+        public List<CameraInfo> FindCameras()
         {
-            if (RecipeName == null) throw new InvalidOperationException("레시피를 먼저 불러오세요.");
+            _cameraUsed = true;
+            return CognexCameraSource.FindCameras();
+        }
+
+        /// <summary>
+        /// 카메라 연결 (레시피와 무관). settings 가 null 이면 system.xml 에 저장된 카메라 설정을 쓴다.
+        /// 연결되면 현재 레시피의 노출을 적용한다.
+        /// </summary>
+        public void ConnectCamera(CameraSettings settings)
+        {
+            if (settings == null) settings = System.Camera;
 
             string message = "카메라에 연결합니다.\n\n" +
                              "장비 PC 에서는 QuickBuild / 생산 프로그램을 먼저 종료하세요.\n" +
@@ -269,38 +288,79 @@ namespace VProSTD
 
             DisconnectCamera();
 
-            string acqPath = Path.Combine(RecipeFolder, RecipeManager.AcqFileName);
-            _cameraUsed = true;   // 불러오는 순간 연결될 수 있으므로 먼저 표시 (종료 시 해제)
+            _cameraUsed = true;   // 여는 순간 연결되므로 먼저 표시 (종료 시 해제)
+            Camera = OpenCamera(settings);
+            WriteLog("CAMERA: 연결 - " + Camera.CameraName + " / " + Camera.VideoFormat);
 
-            if (File.Exists(acqPath))
-            {
-                VppFileInfo info = VppInspector.Inspect(acqPath);
-                if (info.Kind != VppKind.AcqFifo && info.Kind != VppKind.Unknown)
-                {
-                    throw new InvalidDataException("Acq.vpp 가 CogAcqFifoTool 파일이 아닙니다: " + info.RootTypeName);
-                }
-                Acq = AcqImageSource.Load(acqPath);
-                WriteLog("CAMERA: Acq.vpp 불러옴 - " + Acq.CameraName);
-            }
-            else
-            {
-                if (!Confirm("이 레시피에 Acq.vpp 가 없습니다.\n연결된 첫 번째 카메라로 새로 만들까요?\n(RECIPE 탭에서 SAVE 하면 Acq.vpp 로 저장됩니다)")) return;
-                Acq = AcqImageSource.CreateFromFirstCamera();
-                WriteLog("CAMERA: 새로 만듦 - " + Acq.CameraName);
-            }
-
-            if (!Acq.IsConnected) WriteLog("CAMERA: 카메라를 찾을 수 없습니다 (File Mode 로만 검사할 수 있습니다).", LogKind.Warning);
+            ApplyRecipeExposure();
             if (CameraChanged != null) CameraChanged();
         }
 
         /// <summary>
-        /// 카메라 설정(AcqFifoTool) 정리. 카메라 자체는 프로그램 종료 때 해제된다.
+        /// 카메라 종류에 맞는 입력을 만든다. (Euresys CameraLink 는 나중에 여기에 추가)
+        /// </summary>
+        private static ICameraSource OpenCamera(CameraSettings settings)
+        {
+            string type = string.IsNullOrEmpty(settings.Type) ? CameraTypes.CognexGigE : settings.Type;
+            if (type == CameraTypes.CognexGigE) return CognexCameraSource.Open(settings);
+            throw new NotSupportedException("지원하지 않는 카메라 종류입니다: " + type);
+        }
+
+        /// <summary>
+        /// 지금 연결된 카메라(시리얼, 영상 형식)를 system.xml 에 저장한다. 다음 CONNECT 때 이 카메라를 연다.
+        /// </summary>
+        public void SaveCameraSettings()
+        {
+            if (Camera == null) throw new InvalidOperationException("연결된 카메라가 없습니다. CONNECT 를 먼저 누르세요.");
+
+            System.Camera.Serial = Camera.Serial;
+            System.Camera.VideoFormat = Camera.VideoFormat;
+            System.Save();
+            WriteLog("CAMERA: 설정 저장 - " + Camera.CameraName + " / " + Camera.VideoFormat);
+        }
+
+        /// <summary>
+        /// 카메라 정리. 카메라 자체는 프로그램 종료 때 해제된다.
         /// </summary>
         public void DisconnectCamera()
         {
-            if (Acq == null) return;
-            Acq.Dispose();
-            Acq = null;
+            if (Camera == null) return;
+            Camera.Dispose();
+            Camera = null;
+            if (CameraChanged != null) CameraChanged();
+        }
+
+        /// <summary>
+        /// 노출 변경: 카메라에 바로 적용하고, 레시피를 불러왔으면 레시피 노출로 기억한다 (레시피 SAVE 때 저장).
+        /// </summary>
+        public void SetExposure(double exposureMs)
+        {
+            if (Camera == null) return;
+            Camera.Exposure = exposureMs;
+            if (Job != null) Recipe.ExposureMs = exposureMs;
+        }
+
+        /// <summary>
+        /// 레시피에 저장된 노출을 카메라에 적용한다 (레시피 불러오기 / 카메라 연결 때).
+        /// </summary>
+        private void ApplyRecipeExposure()
+        {
+            if (Camera == null || Recipe.ExposureMs <= 0) return;
+            if (Camera.Exposure == null)
+            {
+                WriteLog("CAMERA: 이 카메라는 노출을 바꿀 수 없습니다 (레시피 노출 " + Recipe.ExposureMs + " ms 무시).", LogKind.Warning);
+                return;
+            }
+
+            try
+            {
+                Camera.Exposure = Recipe.ExposureMs;
+                WriteLog("CAMERA: 레시피 노출 적용 - " + Recipe.ExposureMs + " ms");
+            }
+            catch (Exception ex)
+            {
+                WriteLog("CAMERA: 레시피 노출 적용 실패 - " + ex.Message, LogKind.Warning);
+            }
             if (CameraChanged != null) CameraChanged();
         }
 
@@ -309,8 +369,8 @@ namespace VProSTD
         /// </summary>
         public ICogImage GrabOnly()
         {
-            if (Acq == null) throw new InvalidOperationException("CONNECT 를 먼저 누르세요.");
-            return Acq.Grab();
+            if (Camera == null) throw new InvalidOperationException("CONNECT 를 먼저 누르세요.");
+            return Camera.Grab();
         }
 
         #endregion
@@ -339,9 +399,9 @@ namespace VProSTD
                 }
                 else
                 {
-                    if (Acq == null) throw new InvalidOperationException("카메라가 연결되어 있지 않습니다. CONNECT CAMERA 탭에서 CONNECT 하거나 File Mode 를 켜세요.");
+                    if (Camera == null) throw new InvalidOperationException("카메라가 연결되어 있지 않습니다. CONNECT CAMERA 탭에서 CONNECT 하거나 File Mode 를 켜세요.");
                     source = "CAMERA";
-                    image = Acq.Grab();
+                    image = Camera.Grab();
                 }
             }
             catch (Exception ex)

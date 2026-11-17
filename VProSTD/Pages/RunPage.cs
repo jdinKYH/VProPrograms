@@ -95,7 +95,7 @@ namespace VProSTD
         {
             if (app.Job == null)
             {
-                app.WriteLog("레시피를 먼저 불러오세요. (Model Load)", LogKind.Warning);
+                app.WriteLog("레시피를 먼저 불러오세요. (Load Recipe)", LogKind.Warning);
                 return null;
             }
 
@@ -163,7 +163,7 @@ namespace VProSTD
         {
             if (app.Job == null)
             {
-                app.WriteLog("레시피를 먼저 불러오세요. (Model Load)", LogKind.Warning);
+                app.WriteLog("레시피를 먼저 불러오세요. (Load Recipe)", LogKind.Warning);
                 return;
             }
 
@@ -352,7 +352,7 @@ namespace VProSTD
 
         #endregion
 
-        #region Model Load
+        #region Load Recipe
 
         private void btnModelLoad_Click(object sender, EventArgs e)
         {

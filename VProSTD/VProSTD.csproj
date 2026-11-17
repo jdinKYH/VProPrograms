@@ -90,6 +90,7 @@
     <Compile Include="Core\ResultsAnalysisReader.cs" />
     <Compile Include="Core\JobRunner.cs" />
     <Compile Include="Core\ImageSources.cs" />
+    <Compile Include="Core\CameraSources.cs" />
     <Compile Include="Core\ResultLogger.cs" />
     <Compile Include="Core\VisionApp.cs" />
     <Compile Include="Pages\RecipeSelectForm.cs">

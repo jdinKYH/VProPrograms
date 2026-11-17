@@ -8,7 +8,7 @@ using System.Xml.Serialization;
 namespace VProSTD
 {
     /// <summary>
-    /// 레시피 하나의 설정 (recipe.xml)
+    /// 레시피 하나의 설정 (<레시피 이름>.recipe.xml)
     /// </summary>
     public class RecipeSettings
     {
@@ -16,52 +16,74 @@ namespace VProSTD
         public string ResultsAnalysisToolName = "";  // 결과 표에 쓸 CogResultsAnalysisTool 이름. 비우면 첫 번째
         public bool FileMode = false;                // 마지막 File Mode 상태
         public string LastImagePath = "";            // 마지막으로 고른 이미지 파일 또는 폴더
+        public double ExposureMs = 0;                // 이 레시피의 카메라 노출 (ms). 0 이하면 카메라 값을 그대로 씀
     }
 
     /// <summary>
-    /// 레시피 폴더 관리
-    ///   <RecipePath>/<레시피 이름>/Job.vpp      검사 ToolBlock
-    ///   <RecipePath>/<레시피 이름>/Acq.vpp      이미지 취득 CogAcqFifoTool (CONNECT 후 SAVE 하면 생김)
-    ///   <RecipePath>/<레시피 이름>/recipe.xml   위 RecipeSettings
+    /// 레시피 파일 관리. 레시피 = Recipe Path 안의 .vpp 파일 하나 (이름은 사용자가 정함)
+    ///   <RecipePath>/<레시피 이름>.vpp          검사 ToolBlock
+    ///   <RecipePath>/<레시피 이름>.recipe.xml   위 RecipeSettings (없으면 기본값)
+    /// 카메라(이미지 취득) 설정은 레시피에 넣지 않는다 → system.xml 의 Camera (CONNECT CAMERA 탭)
     /// </summary>
     public static class RecipeManager
     {
-        public const string JobFileName = "Job.vpp";
-        public const string AcqFileName = "Acq.vpp";
-        public const string SettingsFileName = "recipe.xml";
+        public const string Extension = ".vpp";
+        public const string SettingsExtension = ".recipe.xml";
 
-        public static string FolderOf(string recipePath, string name)
+        public static string FileOf(string recipePath, string name)
         {
-            return Path.Combine(recipePath, name);
+            return Path.Combine(recipePath, name + Extension);
+        }
+
+        public static string SettingsFileOf(string recipePath, string name)
+        {
+            return Path.Combine(recipePath, name + SettingsExtension);
         }
 
         /// <summary>
-        /// 레시피 이름 목록 (Job.vpp 가 들어 있는 폴더만)
+        /// 사용자가 입력한 이름에서 앞뒤 공백과 .vpp 를 뗀다.
+        /// </summary>
+        public static string CleanName(string name)
+        {
+            name = (name ?? "").Trim();
+            if (name.EndsWith(Extension, StringComparison.OrdinalIgnoreCase))
+            {
+                name = name.Substring(0, name.Length - Extension.Length).Trim();
+            }
+            return name;
+        }
+
+        /// <summary>
+        /// 레시피 이름 목록: Recipe Path 의 .vpp 파일 (확장자를 뗀 이름).
+        /// 카메라 설정 파일(CogAcqFifoTool)처럼 ToolBlock 이 아닌 것으로 확인된 파일은 뺀다.
         /// </summary>
         public static List<string> GetNames(string recipePath)
         {
             List<string> names = new List<string>();
             if (!Directory.Exists(recipePath)) return names;
 
-            foreach (string folder in Directory.GetDirectories(recipePath))
+            foreach (string file in Directory.GetFiles(recipePath, "*" + Extension))
             {
-                if (File.Exists(Path.Combine(folder, JobFileName)))
-                {
-                    names.Add(Path.GetFileName(folder));
-                }
+                // "*.vpp" 는 ".vppx" 같은 파일도 찾으므로 확장자를 다시 확인
+                if (!string.Equals(Path.GetExtension(file), Extension, StringComparison.OrdinalIgnoreCase)) continue;
+
+                VppKind kind = VppInspector.InspectKind(file);
+                if (kind == VppKind.AcqFifo || kind == VppKind.Unsupported) continue;
+
+                names.Add(Path.GetFileNameWithoutExtension(file));
             }
             names.Sort(StringComparer.OrdinalIgnoreCase);
             return names;
         }
 
         /// <summary>
-        /// 폴더 이름으로 쓸 수 없는 글자가 있으면 오류 메시지, 문제없으면 null
+        /// 새 이름 확인. 문제가 있으면 오류 메시지, 문제없으면 null
         /// </summary>
         public static string CheckName(string recipePath, string name)
         {
             if (string.IsNullOrWhiteSpace(name)) return "이름을 입력하세요.";
             if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return "이름에 쓸 수 없는 글자가 있습니다.";
-            if (Directory.Exists(FolderOf(recipePath, name))) return "같은 이름의 레시피가 이미 있습니다.";
+            if (File.Exists(FileOf(recipePath, name))) return "같은 이름의 레시피가 이미 있습니다.";
             return null;
         }
 
@@ -70,47 +92,48 @@ namespace VProSTD
         /// </summary>
         public static void Create(string recipePath, string name)
         {
-            string folder = FolderOf(recipePath, name);
-            Directory.CreateDirectory(folder);
+            Directory.CreateDirectory(recipePath);
 
             CogToolBlock toolBlock = new CogToolBlock();
             toolBlock.Name = name;
             toolBlock.Inputs.Add(new CogToolBlockTerminal(JobRunner.InputImageName, typeof(ICogImage)));
             toolBlock.Outputs.Add(new CogToolBlockTerminal(JobRunner.ResultName, false));
 
-            VppFile.Save(toolBlock, Path.Combine(folder, JobFileName), false);
+            VppFile.Save(toolBlock, FileOf(recipePath, name), false);
             VppFile.Release(toolBlock);
 
-            SaveSettings(folder, new RecipeSettings());
+            SaveSettings(SettingsFileOf(recipePath, name), new RecipeSettings());
         }
 
         /// <summary>
-        /// 레시피 복사: 폴더 안의 파일을 모두 새 폴더로 복사한다 (.bak 은 제외).
+        /// 레시피 복사: .vpp 와 설정 파일(있으면)을 새 이름으로 복사한다.
         /// </summary>
         public static void Copy(string recipePath, string sourceName, string newName)
         {
-            string source = FolderOf(recipePath, sourceName);
-            string target = FolderOf(recipePath, newName);
-            Directory.CreateDirectory(target);
+            File.Copy(FileOf(recipePath, sourceName), FileOf(recipePath, newName));
 
-            foreach (string file in Directory.GetFiles(source))
-            {
-                if (file.EndsWith(".bak", StringComparison.OrdinalIgnoreCase)) continue;
-                File.Copy(file, Path.Combine(target, Path.GetFileName(file)));
-            }
+            string settings = SettingsFileOf(recipePath, sourceName);
+            if (File.Exists(settings)) File.Copy(settings, SettingsFileOf(recipePath, newName));
         }
 
         /// <summary>
-        /// 레시피 삭제: 폴더 전체를 지운다.
+        /// 레시피 삭제: .vpp, .vpp.bak, 설정 파일만 지운다 (같은 폴더의 다른 파일은 건드리지 않음).
         /// </summary>
         public static void Delete(string recipePath, string name)
         {
-            Directory.Delete(FolderOf(recipePath, name), true);
+            string file = FileOf(recipePath, name);
+            File.Delete(file);
+            DeleteIfExists(file + ".bak");
+            DeleteIfExists(SettingsFileOf(recipePath, name));
         }
 
-        public static RecipeSettings LoadSettings(string folder)
+        private static void DeleteIfExists(string path)
         {
-            string path = Path.Combine(folder, SettingsFileName);
+            if (File.Exists(path)) File.Delete(path);
+        }
+
+        public static RecipeSettings LoadSettings(string path)
+        {
             if (!File.Exists(path)) return new RecipeSettings();
 
             XmlSerializer serializer = new XmlSerializer(typeof(RecipeSettings));
@@ -120,10 +143,10 @@ namespace VProSTD
             }
         }
 
-        public static void SaveSettings(string folder, RecipeSettings settings)
+        public static void SaveSettings(string path, RecipeSettings settings)
         {
             XmlSerializer serializer = new XmlSerializer(typeof(RecipeSettings));
-            using (FileStream stream = File.Create(Path.Combine(folder, SettingsFileName)))
+            using (FileStream stream = File.Create(path))
             {
                 serializer.Serialize(stream, settings);
             }

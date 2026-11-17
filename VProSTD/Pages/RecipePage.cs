@@ -122,7 +122,7 @@ namespace VProSTD
         /// </summary>
         private string AskNewName(string title, string defaultName)
         {
-            string name = Interaction.InputBox("레시피 이름을 입력하세요.", title, defaultName).Trim();
+            string name = RecipeManager.CleanName(Interaction.InputBox("레시피 이름을 입력하세요. (파일 이름, .vpp 는 붙이지 않아도 됨)", title, defaultName));
             if (name.Length == 0) return null;   // 취소
 
             string problem = RecipeManager.CheckName(app.System.RecipePath, name);
@@ -198,10 +198,10 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// SAVE: Recipe Path 에서 폴더 선택 창을 열고, 고른 폴더에 저장한다.
-        ///   현재 레시피 폴더       → 덮어쓰기 (.bak 남김)
-        ///   Recipe Path 안 다른 폴더 → 다른 이름으로 저장 후 그 레시피로 바뀜 (창에서 새 폴더를 만들어도 됨)
-        ///   Recipe Path 자체       → 새 레시피 이름을 물어봄
+        /// SAVE: Recipe Path 에서 저장할 .vpp 파일 이름을 고른다.
+        ///   현재 레시피 파일 → 덮어쓰기 (.bak 남김)
+        ///   다른 이름        → 다른 이름으로 저장 후 그 레시피로 바뀜
+        ///   Recipe Path 밖   → 목록에 안 보이므로 저장하지 않음
         /// </summary>
         private void btnSave_Click(object sender, EventArgs e)
         {
@@ -211,38 +211,38 @@ namespace VProSTD
                 return;
             }
 
-            string recipePath = Path.GetFullPath(app.System.RecipePath);
-            string folder;
-            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            string recipePath = Path.GetFullPath(app.System.RecipePath).TrimEnd('\\');
+            string filePath;
+            using (SaveFileDialog dialog = new SaveFileDialog())
             {
-                dialog.Description = "저장할 레시피 폴더를 고르세요. (Recipe Path: " + recipePath + ")\n새 이름으로 저장하려면 [새 폴더 만들기] 를 누르세요.";
-                dialog.ShowNewFolderButton = true;
-                dialog.SelectedPath = app.RecipeFolder;   // 현재 레시피 폴더가 선택된 채로 열림
+                dialog.Title = "레시피 저장 (Recipe Path: " + recipePath + ")";
+                dialog.Filter = "VisionPro 레시피 (*.vpp)|*.vpp";
+                dialog.DefaultExt = "vpp";
+                dialog.AddExtension = true;
+                dialog.OverwritePrompt = false;   // 덮어쓰기 확인은 아래에서 레시피 기준으로 한다
+                dialog.InitialDirectory = recipePath;
+                dialog.FileName = app.RecipeName + RecipeManager.Extension;
                 if (dialog.ShowDialog() != DialogResult.OK) return;
-                folder = Path.GetFullPath(dialog.SelectedPath).TrimEnd('\\');
+                filePath = Path.GetFullPath(dialog.FileName);
             }
 
-            // 저장할 레시피 이름 정하기
-            string name;
-            if (string.Equals(folder, recipePath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(Path.GetDirectoryName(filePath).TrimEnd('\\'), recipePath, StringComparison.OrdinalIgnoreCase))
             {
-                name = AskNewName("SAVE", app.RecipeName + "_new");
-                if (name == null) return;
-            }
-            else if (string.Equals(Path.GetDirectoryName(folder), recipePath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
-            {
-                name = Path.GetFileName(folder);
-            }
-            else
-            {
-                MessageBox.Show("Recipe Path 안의 폴더를 고르세요.\n" + recipePath, "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Recipe Path 안에 저장하세요.\n" + recipePath, "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            // 폴더 위치로 비교 (Recipe Path 를 바꾼 뒤라면 이름이 같아도 다른 폴더임)
-            string targetFolder = Path.GetFullPath(RecipeManager.FolderOf(recipePath, name)).TrimEnd('\\');
-            bool sameRecipe = string.Equals(targetFolder, Path.GetFullPath(app.RecipeFolder).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
-            bool otherRecipeExists = !sameRecipe && File.Exists(Path.Combine(RecipeManager.FolderOf(recipePath, name), RecipeManager.JobFileName));
+            string name = RecipeManager.CleanName(Path.GetFileName(filePath));
+            if (name.Length == 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+            {
+                MessageBox.Show("파일 이름을 확인하세요.", "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // 파일 위치로 비교 (Recipe Path 를 바꾼 뒤라면 이름이 같아도 다른 파일임)
+            string targetFile = Path.GetFullPath(RecipeManager.FileOf(recipePath, name));
+            bool sameRecipe = string.Equals(targetFile, Path.GetFullPath(app.RecipeFilePath), StringComparison.OrdinalIgnoreCase);
+            bool otherRecipeExists = !sameRecipe && File.Exists(targetFile);
 
             string question = "'" + name + "' 에 저장할까요?\n(이전 파일은 .bak 으로 남습니다)";
             if (otherRecipeExists) question = "'" + name + "' 은(는) 다른 레시피입니다.\n현재 레시피로 덮어쓸까요?\n(이전 파일은 .bak 으로 남습니다)";
@@ -271,13 +271,13 @@ namespace VProSTD
             string name = SelectedName();
             if (name == null) return;
 
-            if (name == app.RecipeName)
+            if (string.Equals(name, app.RecipeName, StringComparison.OrdinalIgnoreCase))
             {
                 MessageBox.Show("현재 불러온 레시피는 삭제할 수 없습니다.", "DELETE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
-            DialogResult answer = MessageBox.Show("'" + name + "' 레시피 폴더를 삭제할까요?\n삭제하면 되돌릴 수 없습니다.", "DELETE",
+            DialogResult answer = MessageBox.Show("'" + name + "' 레시피를 삭제할까요?\n(" + name + ".vpp, .bak, 설정 파일)\n삭제하면 되돌릴 수 없습니다.", "DELETE",
                 MessageBoxButtons.YesNo, MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
             if (answer != DialogResult.Yes) return;
 

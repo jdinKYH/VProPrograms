@@ -21,6 +21,8 @@
             this.panelDisplay = new System.Windows.Forms.Panel();
             this.panelRight = new System.Windows.Forms.Panel();
             this.lblCameraModel = new System.Windows.Forms.Label();
+            this.btnSearch = new System.Windows.Forms.Button();
+            this.comboCamera = new System.Windows.Forms.ComboBox();
             this.btnConnect = new System.Windows.Forms.Button();
             this.btnTrigger = new System.Windows.Forms.Button();
             this.lblExposure = new System.Windows.Forms.Label();
@@ -28,6 +30,7 @@
             this.chkFileMode = new System.Windows.Forms.CheckBox();
             this.btnSingleImage = new System.Windows.Forms.Button();
             this.btnImageFolder = new System.Windows.Forms.Button();
+            this.btnCameraSave = new System.Windows.Forms.Button();
             this.panelMain.SuspendLayout();
             this.panelRight.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.numExposure)).BeginInit();
@@ -57,10 +60,13 @@
             // panelRight : 카메라 / File Mode 조작부
             //
             this.panelRight.Controls.Add(this.lblCameraModel);
+            this.panelRight.Controls.Add(this.btnSearch);
+            this.panelRight.Controls.Add(this.comboCamera);
             this.panelRight.Controls.Add(this.btnConnect);
             this.panelRight.Controls.Add(this.btnTrigger);
             this.panelRight.Controls.Add(this.lblExposure);
             this.panelRight.Controls.Add(this.numExposure);
+            this.panelRight.Controls.Add(this.btnCameraSave);
             this.panelRight.Controls.Add(this.chkFileMode);
             this.panelRight.Controls.Add(this.btnSingleImage);
             this.panelRight.Controls.Add(this.btnImageFolder);
@@ -82,6 +88,35 @@
             this.lblCameraModel.Text = "...";
             this.lblCameraModel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             //
+            // btnSearch : 연결된 카메라 찾기
+            //
+            this.btnSearch.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(47)))), ((int)(((byte)(51)))), ((int)(((byte)(56)))));
+            this.btnSearch.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(58)))), ((int)(((byte)(64)))), ((int)(((byte)(72)))));
+            this.btnSearch.FlatAppearance.BorderSize = 2;
+            this.btnSearch.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(72)))), ((int)(((byte)(78)))), ((int)(((byte)(86)))));
+            this.btnSearch.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
+            this.btnSearch.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnSearch.Font = new System.Drawing.Font("맑은 고딕", 14F);
+            this.btnSearch.Location = new System.Drawing.Point(20, 64);
+            this.btnSearch.Name = "btnSearch";
+            this.btnSearch.Size = new System.Drawing.Size(260, 52);
+            this.btnSearch.TabIndex = 9;
+            this.btnSearch.Text = "SEARCH";
+            this.btnSearch.UseVisualStyleBackColor = false;
+            this.btnSearch.Click += new System.EventHandler(this.btnSearch_Click);
+            //
+            // comboCamera : SEARCH 로 찾은 카메라 목록 (CONNECT 할 카메라 선택)
+            //
+            this.comboCamera.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(24)))), ((int)(((byte)(27)))), ((int)(((byte)(31)))));
+            this.comboCamera.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
+            this.comboCamera.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.comboCamera.Font = new System.Drawing.Font("Consolas", 11F);
+            this.comboCamera.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(232)))), ((int)(((byte)(235)))));
+            this.comboCamera.Location = new System.Drawing.Point(20, 128);
+            this.comboCamera.Name = "comboCamera";
+            this.comboCamera.Size = new System.Drawing.Size(260, 30);
+            this.comboCamera.TabIndex = 10;
+            //
             // btnConnect
             //
             this.btnConnect.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(47)))), ((int)(((byte)(51)))), ((int)(((byte)(56)))));
@@ -91,7 +126,7 @@
             this.btnConnect.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
             this.btnConnect.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnConnect.Font = new System.Drawing.Font("맑은 고딕", 14F);
-            this.btnConnect.Location = new System.Drawing.Point(20, 64);
+            this.btnConnect.Location = new System.Drawing.Point(20, 172);
             this.btnConnect.Name = "btnConnect";
             this.btnConnect.Size = new System.Drawing.Size(260, 52);
             this.btnConnect.TabIndex = 1;
@@ -108,7 +143,7 @@
             this.btnTrigger.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
             this.btnTrigger.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnTrigger.Font = new System.Drawing.Font("맑은 고딕", 14F);
-            this.btnTrigger.Location = new System.Drawing.Point(20, 128);
+            this.btnTrigger.Location = new System.Drawing.Point(20, 236);
             this.btnTrigger.Name = "btnTrigger";
             this.btnTrigger.Size = new System.Drawing.Size(260, 52);
             this.btnTrigger.TabIndex = 2;
@@ -118,11 +153,11 @@
             //
             // lblExposure
             //
-            this.lblExposure.Location = new System.Drawing.Point(20, 196);
+            this.lblExposure.Location = new System.Drawing.Point(20, 304);
             this.lblExposure.Name = "lblExposure";
             this.lblExposure.Size = new System.Drawing.Size(260, 30);
             this.lblExposure.TabIndex = 3;
-            this.lblExposure.Text = "노출 (ms)";
+            this.lblExposure.Text = "노출 (ms) - 레시피별";
             this.lblExposure.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
             //
             // numExposure : 노출 시간 (ms)
@@ -133,7 +168,7 @@
             this.numExposure.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.numExposure.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(232)))), ((int)(((byte)(235)))));
             this.numExposure.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            this.numExposure.Location = new System.Drawing.Point(20, 228);
+            this.numExposure.Location = new System.Drawing.Point(20, 336);
             this.numExposure.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
             this.numExposure.Minimum = new decimal(new int[] { 1, 0, 0, 131072 });
             this.numExposure.Name = "numExposure";
@@ -142,6 +177,23 @@
             this.numExposure.TextAlign = System.Windows.Forms.HorizontalAlignment.Right;
             this.numExposure.Value = new decimal(new int[] { 10, 0, 0, 0 });
             this.numExposure.ValueChanged += new System.EventHandler(this.numExposure_ValueChanged);
+            //
+            // btnCameraSave : 연결한 카메라(시리얼, 영상 형식)를 system.xml 에 저장
+            //
+            this.btnCameraSave.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(47)))), ((int)(((byte)(51)))), ((int)(((byte)(56)))));
+            this.btnCameraSave.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(58)))), ((int)(((byte)(64)))), ((int)(((byte)(72)))));
+            this.btnCameraSave.FlatAppearance.BorderSize = 2;
+            this.btnCameraSave.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(72)))), ((int)(((byte)(78)))), ((int)(((byte)(86)))));
+            this.btnCameraSave.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
+            this.btnCameraSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnCameraSave.Font = new System.Drawing.Font("맑은 고딕", 14F);
+            this.btnCameraSave.Location = new System.Drawing.Point(20, 392);
+            this.btnCameraSave.Name = "btnCameraSave";
+            this.btnCameraSave.Size = new System.Drawing.Size(260, 52);
+            this.btnCameraSave.TabIndex = 11;
+            this.btnCameraSave.Text = "SAVE CAMERA";
+            this.btnCameraSave.UseVisualStyleBackColor = false;
+            this.btnCameraSave.Click += new System.EventHandler(this.btnCameraSave_Click);
             //
             // chkFileMode : 켜면 카메라 대신 이미지 파일로 검사
             //
@@ -213,7 +265,10 @@
         private System.Windows.Forms.Panel panelDisplay;
         private System.Windows.Forms.Panel panelRight;
         private System.Windows.Forms.Label lblCameraModel;
+        private System.Windows.Forms.Button btnSearch;
+        private System.Windows.Forms.ComboBox comboCamera;
         private System.Windows.Forms.Button btnConnect;
+        private System.Windows.Forms.Button btnCameraSave;
         private System.Windows.Forms.Button btnTrigger;
         private System.Windows.Forms.Label lblExposure;
         private System.Windows.Forms.NumericUpDown numExposure;
