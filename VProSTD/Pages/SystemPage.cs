@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.IO;
 using System.Windows.Forms;
 
 namespace VProSTD
@@ -43,24 +44,49 @@ namespace VProSTD
             chkResultSave.Checked = s.ResultSave;
         }
 
+        private const string SettingsFilter = "System Settings (*.xml)|*.xml|All Files (*.*)|*.*";
+
         /// <summary>
-        /// LOAD: 파일에 저장된 값으로 화면을 되돌린다 (저장하지 않은 변경은 버림).
+        /// 파일 창을 처음 열 폴더: System Path (없는 폴더면 실행 파일 폴더)
+        /// </summary>
+        private string SystemFolder()
+        {
+            string folder = txtSystemPath.Text.Trim();
+            if (!Directory.Exists(folder)) folder = app.System.SystemPath;
+            if (!Directory.Exists(folder)) folder = Application.StartupPath;
+            return folder;
+        }
+
+        /// <summary>
+        /// LOAD: System Path 에서 설정 파일을 골라 화면에 읽어 온다.
+        /// 화면에만 읽어 오므로, 실제로 적용하려면 SAVE 를 누른다.
         /// </summary>
         private void btnLoad_Click(object sender, EventArgs e)
         {
+            string path;
+            using (OpenFileDialog dialog = new OpenFileDialog())
+            {
+                dialog.Title = "불러올 설정 파일 선택";
+                dialog.Filter = SettingsFilter;
+                dialog.InitialDirectory = SystemFolder();
+                if (dialog.ShowDialog() != DialogResult.OK) return;
+                path = dialog.FileName;
+            }
+
             try
             {
-                ShowSettings(SystemSettings.Load());
-                app.WriteLog("SYSTEM: 설정 다시 읽음 (SAVE 해야 적용됩니다)");
+                ShowSettings(SystemSettings.LoadFrom(path));
+                app.WriteLog("SYSTEM: 설정 파일 읽음 - " + path + " (SAVE 해야 적용됩니다)");
             }
             catch (Exception ex)
             {
-                MessageBox.Show("system.xml 을 읽을 수 없습니다:\n" + ex.Message, "LOAD", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("설정 파일을 읽을 수 없습니다:\n" + ex.Message, "LOAD", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
         /// <summary>
-        /// SAVE: 화면 값 → 설정 → system.xml
+        /// SAVE: System Path 에서 저장할 파일을 고른다.
+        /// 고른 파일에 저장하고, 지금 실행 중인 설정과 실행 파일 옆 system.xml(다음 실행 때 사용)에도 적용한다.
         /// </summary>
         private void btnSave_Click(object sender, EventArgs e)
         {
@@ -71,6 +97,20 @@ namespace VProSTD
             {
                 MessageBox.Show("Pixel X / Y 에는 숫자를 입력하세요. (예: 0.0125)", "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
+            }
+
+            string path;
+            using (SaveFileDialog dialog = new SaveFileDialog())
+            {
+                dialog.Title = "설정 저장";
+                dialog.Filter = SettingsFilter;
+                dialog.DefaultExt = "xml";
+                dialog.AddExtension = true;
+                dialog.OverwritePrompt = true;
+                dialog.InitialDirectory = SystemFolder();
+                dialog.FileName = "system.xml";
+                if (dialog.ShowDialog() != DialogResult.OK) return;
+                path = dialog.FileName;
             }
 
             SystemSettings s = app.System;
@@ -87,10 +127,11 @@ namespace VProSTD
 
             try
             {
-                app.SaveSystem();
-                ShowSettings(s);   // 비어 있던 경로가 기본값으로 채워졌을 수 있음
-                app.WriteLog("SYSTEM: 설정 저장");
-                MessageBox.Show("저장되었습니다.", "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                app.SaveSystem();   // 실행 중 설정 + 실행 파일 옆 system.xml
+                s.SaveTo(path);     // 고른 파일
+                ShowSettings(s);    // 비어 있던 경로가 기본값으로 채워졌을 수 있음
+                app.WriteLog("SYSTEM: 설정 저장 - " + path);
+                MessageBox.Show("저장되었습니다:\n" + path, "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

@@ -47,6 +47,7 @@ namespace VProSTD
         public event Action RecipeChanged;                 // 레시피를 불러옴 / 닫음
         public event Action RecipeUnloading;               // 레시피를 닫기 직전 (편집 화면 연결을 먼저 끊기 위해)
         public event Action CameraChanged;                 // 카메라 연결 상태 바뀜
+        public event Action SystemChanged;                 // SYSTEM 탭 설정 저장 (경로가 바뀌었을 수 있음)
 
         // 예/아니오 확인 창 (MainForm 이 MessageBox 로 연결해 준다)
         public Func<string, bool> Confirm = message => true;
@@ -180,6 +181,44 @@ namespace VProSTD
             RecipeManager.SaveSettings(RecipeFolder, Recipe);
 
             WriteLog("RECIPE: '" + RecipeName + "' 저장");
+        }
+
+        /// <summary>
+        /// 다른 이름으로 저장: Recipe Path 아래 name 폴더에 저장하고, 그 레시피를 현재 레시피로 바꾼다.
+        /// 폴더에 이미 파일이 있으면 .bak 을 남기고 덮어쓴다.
+        /// </summary>
+        public void SaveRecipeAs(string name)
+        {
+            if (Job == null) throw new InvalidOperationException("불러온 레시피가 없습니다.");
+
+            string folder = RecipeManager.FolderOf(System.RecipePath, name);
+            Directory.CreateDirectory(folder);
+
+            string oldName = RecipeName;
+            string oldFolder = RecipeFolder;
+            string oldJobPath = Job.FilePath;
+
+            Job.FilePath = Path.Combine(folder, RecipeManager.JobFileName);
+            RecipeName = name;
+            RecipeFolder = folder;
+            try
+            {
+                SaveRecipe();
+            }
+            catch
+            {
+                // 저장에 실패하면 현재 레시피를 원래 이름으로 되돌린다
+                Job.FilePath = oldJobPath;
+                RecipeName = oldName;
+                RecipeFolder = oldFolder;
+                throw;
+            }
+
+            System.LastRecipe = name;
+            SaveSystemQuietly();
+
+            WriteLog("RECIPE: '" + oldName + "' → '" + name + "' 다른 이름으로 저장");
+            if (RecipeChanged != null) RecipeChanged();
         }
 
         /// <summary>
@@ -370,6 +409,7 @@ namespace VProSTD
         {
             System.FillEmptyPaths();
             System.Save();
+            if (SystemChanged != null) SystemChanged();
         }
 
         private void SaveSystemQuietly()

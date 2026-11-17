@@ -36,16 +36,24 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 파일에서 읽는다. 파일이 없으면 기본값(실행 파일 옆 Data 폴더)을 만든다.
+        /// 실행 파일 옆 system.xml 을 읽는다. 파일이 없으면 기본값(실행 파일 옆 Data 폴더)을 만든다.
         /// </summary>
         public static SystemSettings Load()
         {
+            return LoadFrom(FilePath);
+        }
+
+        /// <summary>
+        /// 지정한 설정 파일을 읽는다 (SYSTEM 탭 LOAD). 파일이 없으면 기본값.
+        /// </summary>
+        public static SystemSettings LoadFrom(string path)
+        {
             SystemSettings settings = null;
 
-            if (File.Exists(FilePath))
+            if (File.Exists(path))
             {
                 XmlSerializer serializer = new XmlSerializer(typeof(SystemSettings));
-                using (FileStream stream = File.OpenRead(FilePath))
+                using (FileStream stream = File.OpenRead(path))
                 {
                     settings = (SystemSettings)serializer.Deserialize(stream);
                 }
@@ -56,10 +64,21 @@ namespace VProSTD
             return settings;
         }
 
+        /// <summary>
+        /// 실행 파일 옆 system.xml 에 저장 (다음 실행 때 이 값을 씀)
+        /// </summary>
         public void Save()
         {
+            SaveTo(FilePath);
+        }
+
+        /// <summary>
+        /// 지정한 파일에 저장 (SYSTEM 탭 SAVE 에서 고른 파일)
+        /// </summary>
+        public void SaveTo(string path)
+        {
             XmlSerializer serializer = new XmlSerializer(typeof(SystemSettings));
-            using (FileStream stream = File.Create(FilePath))
+            using (FileStream stream = File.Create(path))
             {
                 serializer.Serialize(stream, this);
             }

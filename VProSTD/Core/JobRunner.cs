@@ -20,7 +20,7 @@ namespace VProSTD
         public const string ResultName = "Result";
 
         public CogToolBlock ToolBlock { get; private set; }
-        public string FilePath { get; private set; }
+        public string FilePath { get; set; }   // 다른 이름으로 저장하면 바뀜
 
         public JobRunner(CogToolBlock toolBlock, string filePath)
         {

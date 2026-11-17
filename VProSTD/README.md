@@ -35,7 +35,9 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 | Outputs `Result` | bool | **필수.** true = OK, false = NG. 실행 오류는 NG 로 센다 |
 | Inputs `PixelX`, `PixelY` | double | 선택. 있으면 SYSTEM 탭 값을 넣어 준다 |
 
+- RECIPE 탭의 목록과 모든 버튼은 SYSTEM 탭의 **Recipe Path** 를 쓴다.
 - RECIPE 탭의 NEW 는 위 필수 단자가 들어 있는 빈 ToolBlock 을 만든다.
+- RECIPE 탭의 SAVE 는 Recipe Path 에서 폴더 선택 창을 연다. 현재 레시피 폴더 = 덮어쓰기, 다른 폴더(새 폴더 포함) = 다른 이름으로 저장 후 그 레시피로 바뀜, Recipe Path 자체 = 새 이름 입력.
 - Job.vpp 에 카메라(AcqFifo)·I/O 설정이 들어 있으면 불러오기 전에 경고한다 (취득은 Acq.vpp 로 분리하는 것이 원칙).
 - RUN 탭 아래 결과 표는 ToolBlock 안 **CogResultsAnalysisTool 의 Output 항목**(이름 = 열 제목)을 보여 준다.
   Output 항목의 값은 판정값(Accept/Reject)이다. CogResultsAnalysisTool 이 여러 개이면 `recipe.xml` 의 `ResultsAnalysisToolName` 으로 지정한다.
@@ -46,6 +48,7 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 | 파일 | 위치 | 내용 |
 |---|---|---|
 | `system.xml` | 실행 파일 옆 (고정) | SYSTEM 탭 값, 마지막 레시피 (다음 실행 때 자동으로 불러옴) |
+| 설정 파일 사본 (`*.xml`) | System Path (SAVE 창에서 고름) | SYSTEM 탭 SAVE 는 고른 파일과 위 system.xml 에 함께 저장, LOAD 는 고른 파일을 화면에 읽어 옴 (SAVE 해야 적용) |
 | `yyyyMMdd_log.txt` | Log Path | 화면 Log 와 같은 내용 |
 | `yyyyMMdd_result.csv` | Log Path | 검사 1회 = 1줄 (Time, Source, Judge, TimeMs, 결과 표 값) |
 | `HHmmss_fff_Origin/Result.bmp(jpg)` | Result Path/yyyyMMdd/OK·NG | 원본 / 검사 그래픽이 그려진 화면 (SYSTEM 탭에서 선택) |

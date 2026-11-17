@@ -115,7 +115,7 @@
             // cardNg : NG 는 빨강 테두리 + 빨강 숫자
             //
             this.cardNg.AccentColor = System.Drawing.Color.FromArgb(((int)(((byte)(179)))), ((int)(((byte)(38)))), ((int)(((byte)(30)))));
-            this.cardNg.Location = new System.Drawing.Point(362, 98);
+            this.cardNg.Location = new System.Drawing.Point(500, 98);
             this.cardNg.Name = "cardNg";
             this.cardNg.Size = new System.Drawing.Size(130, 90);
             this.cardNg.TabIndex = 3;
@@ -125,7 +125,7 @@
             // cardYield : YIELD 는 주황 테두리 + 주황 숫자
             //
             this.cardYield.AccentColor = System.Drawing.Color.FromArgb(((int)(((byte)(240)))), ((int)(((byte)(180)))), ((int)(((byte)(0)))));
-            this.cardYield.Location = new System.Drawing.Point(500, 98);
+            this.cardYield.Location = new System.Drawing.Point(362, 98);
             this.cardYield.Name = "cardYield";
             this.cardYield.Size = new System.Drawing.Size(130, 90);
             this.cardYield.TabIndex = 4;

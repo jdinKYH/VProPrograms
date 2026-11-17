@@ -79,7 +79,7 @@
             this.groupPixel.Size = new System.Drawing.Size(880, 120);
             this.groupPixel.TabIndex = 0;
             this.groupPixel.TabStop = false;
-            this.groupPixel.Text = "Pixel Size";
+            this.groupPixel.Text = "Pixel Size (mm/pixel)";
             //
             // lblPixelX
             //

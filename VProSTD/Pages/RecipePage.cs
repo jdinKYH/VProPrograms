@@ -2,6 +2,7 @@ using Cognex.VisionPro.ToolBlock;
 using Microsoft.VisualBasic;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Windows.Forms;
 
 namespace VProSTD
@@ -10,6 +11,7 @@ namespace VProSTD
     /// [RECIPE] 탭: 레시피 관리 + ToolBlock 편집
     ///   왼쪽   : ToolBlock 편집 화면 (CogToolBlockEditV2)
     ///   오른쪽 : 레시피 목록, LOAD / COPY / NEW / SAVE / DELETE
+    /// 목록과 모든 버튼은 SYSTEM 탭의 Recipe Path 폴더를 쓴다.
     /// </summary>
     public partial class RecipePage : UserControl
     {
@@ -26,6 +28,7 @@ namespace VProSTD
             app = visionApp;
             app.RecipeChanged += OnRecipeChanged;
             app.RecipeUnloading += OnRecipeUnloading;
+            app.SystemChanged += RefreshList;   // SYSTEM 탭에서 Recipe Path 를 바꾸면 목록을 다시 읽음
 
             // 편집 화면은 Cognex 컨트롤이라 디자이너 대신 코드로 넣는다
             editor = new CogToolBlockEditV2();
@@ -194,6 +197,12 @@ namespace VProSTD
             if (answer == DialogResult.Yes) btnLoad_Click(sender, e);
         }
 
+        /// <summary>
+        /// SAVE: Recipe Path 에서 폴더 선택 창을 열고, 고른 폴더에 저장한다.
+        ///   현재 레시피 폴더       → 덮어쓰기 (.bak 남김)
+        ///   Recipe Path 안 다른 폴더 → 다른 이름으로 저장 후 그 레시피로 바뀜 (창에서 새 폴더를 만들어도 됨)
+        ///   Recipe Path 자체       → 새 레시피 이름을 물어봄
+        /// </summary>
         private void btnSave_Click(object sender, EventArgs e)
         {
             if (app.RecipeName == null)
@@ -202,14 +211,53 @@ namespace VProSTD
                 return;
             }
 
-            DialogResult answer = MessageBox.Show("'" + app.RecipeName + "' 을(를) 저장할까요?\n(이전 파일은 .bak 으로 남습니다)", "SAVE",
-                MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            string recipePath = Path.GetFullPath(app.System.RecipePath);
+            string folder;
+            using (FolderBrowserDialog dialog = new FolderBrowserDialog())
+            {
+                dialog.Description = "저장할 레시피 폴더를 고르세요. (Recipe Path: " + recipePath + ")\n새 이름으로 저장하려면 [새 폴더 만들기] 를 누르세요.";
+                dialog.ShowNewFolderButton = true;
+                dialog.SelectedPath = app.RecipeFolder;   // 현재 레시피 폴더가 선택된 채로 열림
+                if (dialog.ShowDialog() != DialogResult.OK) return;
+                folder = Path.GetFullPath(dialog.SelectedPath).TrimEnd('\\');
+            }
+
+            // 저장할 레시피 이름 정하기
+            string name;
+            if (string.Equals(folder, recipePath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            {
+                name = AskNewName("SAVE", app.RecipeName + "_new");
+                if (name == null) return;
+            }
+            else if (string.Equals(Path.GetDirectoryName(folder), recipePath.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
+            {
+                name = Path.GetFileName(folder);
+            }
+            else
+            {
+                MessageBox.Show("Recipe Path 안의 폴더를 고르세요.\n" + recipePath, "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            // 폴더 위치로 비교 (Recipe Path 를 바꾼 뒤라면 이름이 같아도 다른 폴더임)
+            string targetFolder = Path.GetFullPath(RecipeManager.FolderOf(recipePath, name)).TrimEnd('\\');
+            bool sameRecipe = string.Equals(targetFolder, Path.GetFullPath(app.RecipeFolder).TrimEnd('\\'), StringComparison.OrdinalIgnoreCase);
+            bool otherRecipeExists = !sameRecipe && File.Exists(Path.Combine(RecipeManager.FolderOf(recipePath, name), RecipeManager.JobFileName));
+
+            string question = "'" + name + "' 에 저장할까요?\n(이전 파일은 .bak 으로 남습니다)";
+            if (otherRecipeExists) question = "'" + name + "' 은(는) 다른 레시피입니다.\n현재 레시피로 덮어쓸까요?\n(이전 파일은 .bak 으로 남습니다)";
+
+            DialogResult answer = MessageBox.Show(question, "SAVE", MessageBoxButtons.YesNo,
+                otherRecipeExists ? MessageBoxIcon.Warning : MessageBoxIcon.Question, MessageBoxDefaultButton.Button2);
             if (answer != DialogResult.Yes) return;
 
             try
             {
-                app.SaveRecipe();
-                MessageBox.Show("저장되었습니다.", "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                if (sameRecipe) app.SaveRecipe();
+                else app.SaveRecipeAs(name);
+
+                RefreshList();
+                MessageBox.Show("저장되었습니다: " + name, "SAVE", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

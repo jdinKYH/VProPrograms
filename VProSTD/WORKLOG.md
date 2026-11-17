@@ -37,3 +37,16 @@ VProEditAll 을 바탕으로 만든 검사 프로그램. 이미지 취득(Acq.vp
 - 실제 검사 ToolBlock (이미지 툴 + CogResultsAnalysisTool) 의 Record 표시, Result 이미지 그래픽
 - InputImage 가 안쪽 툴과 연결되지 않은 ToolBlock 경고 (계획에 있었으나 이번에는 구현하지 않음)
 - PLC 연결 (표시등만 있음)
+
+## 2026-11-17 화면·저장 방식 수정
+
+| # | 내용 |
+|---|---|
+| 1 | RUN 탭: NG COUNT 카드와 YIELD 카드 위치 교환 |
+| 2 | RECIPE 탭: 목록·버튼 모두 Recipe Path 사용 (SYSTEM SAVE 로 경로가 바뀌면 목록 다시 읽음) |
+| 3 | RECIPE SAVE: Recipe Path 에서 폴더 선택 → 현재 폴더면 덮어쓰기, 다른 폴더면 다른 이름으로 저장 후 전환. 저장 실패 시 원래 레시피로 되돌림 |
+| 4 | SYSTEM LOAD / SAVE: System Path 에서 파일 선택. SAVE 는 고른 파일 + 실행 파일 옆 system.xml 에 함께 저장 |
+| 5 | SYSTEM: 그룹 이름 "Pixel Size (mm/pixel)" |
+
+확인: 빌드 오류·경고 없음, Core 시험 37항목 통과 (다른 이름으로 저장, 설정 파일 저장·읽기 추가), 화면 시험 통과.
+파일 선택 창(폴더/파일 고르기)은 사람이 눌러야 해서 자동 시험에서는 확인하지 못함.
