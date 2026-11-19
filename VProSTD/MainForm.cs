@@ -38,6 +38,7 @@ namespace VProSTD
             // 프로그램 중심 객체 (system.xml 을 읽음)
             app = new VisionApp();
             app.Confirm = ConfirmMessage;
+            app.Warn = WarnMessage;
             app.LogAdded += (text, kind) => SetStatus(text);
             app.RecipeChanged += () => SetRecipeName(app.RecipeName);
             app.CameraChanged += () => SetCameraLamp(app.IsCameraConnected);
@@ -77,6 +78,11 @@ namespace VProSTD
             DialogResult answer = MessageBox.Show(message, "확인", MessageBoxButtons.YesNo,
                 MessageBoxIcon.Warning, MessageBoxDefaultButton.Button2);
             return answer == DialogResult.Yes;
+        }
+
+        private void WarnMessage(string message)
+        {
+            MessageBox.Show(message, "경고", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
 
         #region 타이틀 바
@@ -266,6 +272,7 @@ namespace VProSTD
             }
 
             timerClock.Stop();
+            cameraPage.StopLive();   // Live 취득을 먼저 멈춘 뒤 카메라를 정리한다
             app.WriteLog("SYSTEM: 종료");
 
             // [안전] 레시피 정리 → 카메라 설정 정리 → 카메라 해제 (안에서 오류를 무시하며 끝까지 진행)

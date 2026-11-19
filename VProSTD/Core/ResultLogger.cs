@@ -16,7 +16,7 @@ namespace VProSTD
     public class ResultLogger
     {
         private readonly SystemSettings _settings;
-        private string _lastCsvHeader = "";   // 출력 항목이 바뀌면 머리글을 다시 쓰기 위해 기억
+        private string _lastCsvHeader = "";   // 항목이 바뀌면 머리글을 다시 쓰기 위해 기억
 
         public ResultLogger(SystemSettings settings)
         {
@@ -55,7 +55,7 @@ namespace VProSTD
                 // 오류 결과(출력 값 없음)는 머리글을 바꾸지 않고 앞 4칸만 쓴다
                 bool noOutputs = result.OutputNames.Count == 0 && _lastCsvHeader.Length > 0;
 
-                // 파일이 새로 생기거나 출력 항목이 바뀌면 머리글을 한 줄 쓴다
+                // 파일이 새로 생기거나 항목이 바뀌면 머리글을 한 줄 쓴다
                 if (!File.Exists(path) || (!noOutputs && header != _lastCsvHeader))
                 {
                     text.AppendLine(header);

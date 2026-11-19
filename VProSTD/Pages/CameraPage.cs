@@ -9,7 +9,7 @@ namespace VProSTD
     /// <summary>
     /// [CONNECT CAMERA] 탭: 이미지 입력 설정
     ///   왼쪽   : 취득/불러온 이미지 확인 화면 (CogDisplay)
-    ///   오른쪽 : 카메라 모델, SEARCH / 카메라 선택 / CONNECT / TRIGGER, 노출, SAVE CAMERA,
+    ///   오른쪽 : 카메라 모델, SEARCH / 카메라 선택 / CONNECT / TRIGGER / LIVE, 노출, SAVE CAMERA,
     ///            File Mode (Single Image / Image Folder)
     /// 카메라 설정은 레시피와 따로 system.xml 에 저장한다 (SAVE CAMERA). 노출만 레시피별 (레시피 SAVE).
     /// </summary>
@@ -20,6 +20,10 @@ namespace VProSTD
 
         // 코드에서 값을 바꾸는 중에는 이벤트(노출 변경, File Mode 변경)를 무시하기 위해 쓴다
         private bool updating;
+
+        // Live Mode: 켜져 있으면 타이머로 계속 1장씩 취득해서 보여 준다 (TRIGGER 는 막음)
+        private Timer timerLive;
+        private bool live;
 
         public CameraPage()
         {
@@ -36,6 +40,13 @@ namespace VProSTD
             display = new CogDisplay();
             display.Dock = DockStyle.Fill;
             panelDisplay.Controls.Add(display);
+
+            timerLive = new Timer();
+            timerLive.Interval = 30;
+            timerLive.Tick += timerLive_Tick;
+
+            // 다른 탭으로 가면 Live 를 끈다 (RUN 검사와 카메라를 함께 쓰지 않게)
+            VisibleChanged += (sender, e) => { if (!Visible) StopLive(); };
 
             OnRecipeChanged();
             UpdateCameraInfo();
@@ -54,6 +65,8 @@ namespace VProSTD
         /// </summary>
         private void UpdateCameraInfo()
         {
+            if (!app.IsCameraConnected) StopLive();
+
             updating = true;
             if (app.Camera == null)
             {
@@ -87,10 +100,13 @@ namespace VProSTD
             btnSingleImage.Enabled = fileMode;
             btnImageFolder.Enabled = fileMode;
 
-            btnSearch.Enabled = !fileMode;
-            comboCamera.Enabled = !fileMode;
-            btnConnect.Enabled = !fileMode;
-            btnTrigger.Enabled = !fileMode && connected;
+            // Live 중에는 카메라를 바꾸거나 File Mode 로 바꿀 수 없고, TRIGGER 도 막는다
+            chkFileMode.Enabled = !live;
+            btnSearch.Enabled = !fileMode && !live;
+            comboCamera.Enabled = !fileMode && !live;
+            btnConnect.Enabled = !fileMode && !live;
+            btnTrigger.Enabled = !fileMode && connected && !live;
+            btnLive.Enabled = !fileMode && connected;
             numExposure.Enabled = !fileMode && connected && app.Camera.Exposure != null;
             btnCameraSave.Enabled = !fileMode && connected;
         }
@@ -174,13 +190,84 @@ namespace VProSTD
 
         private void btnTrigger_Click(object sender, EventArgs e)
         {
+            if (live) return;   // TRIGGER 는 Live OFF 일 때만
+
             try
             {
-                ShowImage(app.GrabOnly());
+                ICogImage image = app.GrabOnly();
+                ShowImage(image);
+                app.SetRecipeImage(image);   // RECIPE 탭 편집 화면에서 바로 실행해 볼 수 있게
             }
             catch (Exception ex)
             {
                 app.WriteLog("CAMERA: 취득 실패 - " + ex.Message, LogKind.Ng);
+            }
+        }
+
+        /// <summary>
+        /// LIVE: 한 번 누르면 ON, 다시 누르면 OFF
+        /// </summary>
+        private void btnLive_Click(object sender, EventArgs e)
+        {
+            if (live) StopLive();
+            else StartLive();
+        }
+
+        private void StartLive()
+        {
+            if (live || app == null || !app.IsCameraConnected || chkFileMode.Checked) return;
+
+            live = true;
+            liveFirstImage = true;
+            btnLive.Text = "LIVE ON";
+            btnLive.BackColor = Theme.Blue;
+            timerLive.Start();
+            app.WriteLog("CAMERA: Live ON");
+            UpdateButtons();
+        }
+
+        /// <summary>
+        /// Live 끄기. 탭 이동, 카메라 연결 끊김, 프로그램 종료 때도 부른다 (꺼져 있으면 아무것도 안 함).
+        /// </summary>
+        public void StopLive()
+        {
+            if (!live) return;
+
+            live = false;
+            timerLive.Stop();
+            btnLive.Text = "LIVE OFF";
+            btnLive.BackColor = Theme.Button;
+            if (app != null) app.WriteLog("CAMERA: Live OFF");
+            UpdateButtons();
+        }
+
+        // Live 첫 장만 화면에 맞추고, 그 뒤로는 사용자가 확대한 상태를 유지한다
+        private bool liveFirstImage;
+
+        private void timerLive_Tick(object sender, EventArgs e)
+        {
+            if (!live) return;
+            if (!app.IsCameraConnected)
+            {
+                StopLive();
+                return;
+            }
+
+            try
+            {
+                ICogImage image = app.GrabOnly();
+                display.Image = image;
+                if (liveFirstImage)
+                {
+                    display.Fit(false);
+                    liveFirstImage = false;
+                }
+            }
+            catch (Exception ex)
+            {
+                // 취득이 실패하면 Live 를 끈다 (같은 오류가 계속 쌓이지 않게)
+                app.WriteLog("CAMERA: Live 취득 실패 - " + ex.Message, LogKind.Ng);
+                StopLive();
             }
         }
 
@@ -262,7 +349,7 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 고른 파일/폴더의 첫 이미지를 미리 보여 준다 (읽은 뒤 처음으로 되돌림).
+        /// 고른 파일/폴더의 첫 이미지를 미리 보여 주고 레시피 입력에도 넣는다 (읽은 뒤 처음으로 되돌림).
         /// </summary>
         private void ShowFirstImage()
         {
@@ -270,7 +357,9 @@ namespace VProSTD
             try
             {
                 string name;
-                ShowImage(app.Files.Next(out name));
+                ICogImage image = app.Files.Next(out name);
+                ShowImage(image);
+                app.SetRecipeImage(image);   // RECIPE 탭 편집 화면에서 바로 실행해 볼 수 있게
             }
             catch (Exception ex)
             {

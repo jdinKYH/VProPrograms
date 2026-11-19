@@ -25,6 +25,7 @@
             this.comboCamera = new System.Windows.Forms.ComboBox();
             this.btnConnect = new System.Windows.Forms.Button();
             this.btnTrigger = new System.Windows.Forms.Button();
+            this.btnLive = new System.Windows.Forms.Button();
             this.lblExposure = new System.Windows.Forms.Label();
             this.numExposure = new System.Windows.Forms.NumericUpDown();
             this.chkFileMode = new System.Windows.Forms.CheckBox();
@@ -64,6 +65,7 @@
             this.panelRight.Controls.Add(this.comboCamera);
             this.panelRight.Controls.Add(this.btnConnect);
             this.panelRight.Controls.Add(this.btnTrigger);
+            this.panelRight.Controls.Add(this.btnLive);
             this.panelRight.Controls.Add(this.lblExposure);
             this.panelRight.Controls.Add(this.numExposure);
             this.panelRight.Controls.Add(this.btnCameraSave);
@@ -151,9 +153,26 @@
             this.btnTrigger.UseVisualStyleBackColor = false;
             this.btnTrigger.Click += new System.EventHandler(this.btnTrigger_Click);
             //
+            // btnLive : 한 번 누르면 Live ON (계속 취득), 다시 누르면 OFF
+            //
+            this.btnLive.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(47)))), ((int)(((byte)(51)))), ((int)(((byte)(56)))));
+            this.btnLive.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(58)))), ((int)(((byte)(64)))), ((int)(((byte)(72)))));
+            this.btnLive.FlatAppearance.BorderSize = 2;
+            this.btnLive.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(72)))), ((int)(((byte)(78)))), ((int)(((byte)(86)))));
+            this.btnLive.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
+            this.btnLive.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnLive.Font = new System.Drawing.Font("맑은 고딕", 14F);
+            this.btnLive.Location = new System.Drawing.Point(20, 300);
+            this.btnLive.Name = "btnLive";
+            this.btnLive.Size = new System.Drawing.Size(260, 52);
+            this.btnLive.TabIndex = 12;
+            this.btnLive.Text = "LIVE OFF";
+            this.btnLive.UseVisualStyleBackColor = false;
+            this.btnLive.Click += new System.EventHandler(this.btnLive_Click);
+            //
             // lblExposure
             //
-            this.lblExposure.Location = new System.Drawing.Point(20, 304);
+            this.lblExposure.Location = new System.Drawing.Point(20, 368);
             this.lblExposure.Name = "lblExposure";
             this.lblExposure.Size = new System.Drawing.Size(260, 30);
             this.lblExposure.TabIndex = 3;
@@ -168,7 +187,7 @@
             this.numExposure.BorderStyle = System.Windows.Forms.BorderStyle.FixedSingle;
             this.numExposure.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(232)))), ((int)(((byte)(235)))));
             this.numExposure.Increment = new decimal(new int[] { 1, 0, 0, 65536 });
-            this.numExposure.Location = new System.Drawing.Point(20, 336);
+            this.numExposure.Location = new System.Drawing.Point(20, 400);
             this.numExposure.Maximum = new decimal(new int[] { 1000, 0, 0, 0 });
             this.numExposure.Minimum = new decimal(new int[] { 1, 0, 0, 131072 });
             this.numExposure.Name = "numExposure";
@@ -187,7 +206,7 @@
             this.btnCameraSave.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
             this.btnCameraSave.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnCameraSave.Font = new System.Drawing.Font("맑은 고딕", 14F);
-            this.btnCameraSave.Location = new System.Drawing.Point(20, 392);
+            this.btnCameraSave.Location = new System.Drawing.Point(20, 456);
             this.btnCameraSave.Name = "btnCameraSave";
             this.btnCameraSave.Size = new System.Drawing.Size(260, 52);
             this.btnCameraSave.TabIndex = 11;
@@ -270,6 +289,7 @@
         private System.Windows.Forms.Button btnConnect;
         private System.Windows.Forms.Button btnCameraSave;
         private System.Windows.Forms.Button btnTrigger;
+        private System.Windows.Forms.Button btnLive;
         private System.Windows.Forms.Label lblExposure;
         private System.Windows.Forms.NumericUpDown numExposure;
         private System.Windows.Forms.CheckBox chkFileMode;

@@ -12,7 +12,6 @@ namespace VProSTD
     /// </summary>
     public class RecipeSettings
     {
-        public string DisplayRecordName = "";        // RUN 화면에 보여 줄 Record 이름. 비우면 첫 번째 Record
         public string ResultsAnalysisToolName = "";  // 결과 표에 쓸 CogResultsAnalysisTool 이름. 비우면 첫 번째
         public bool FileMode = false;                // 마지막 File Mode 상태
         public string LastImagePath = "";            // 마지막으로 고른 이미지 파일 또는 폴더

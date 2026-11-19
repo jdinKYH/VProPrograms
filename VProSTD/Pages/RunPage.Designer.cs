@@ -256,7 +256,7 @@
             this.panelGap.Size = new System.Drawing.Size(1900, 8);
             this.panelGap.TabIndex = 1;
             //
-            // gridResult : 검사 결과 표 (CogResultsAnalysisTool 의 출력 항목, 3줄 보이고 스크롤)
+            // gridResult : 검사 결과 표 (CogResultsAnalysisTool 의 Input / Output 항목, 3줄 보이고 스크롤)
             //
             this.gridResult.AllowUserToAddRows = false;
             this.gridResult.AllowUserToDeleteRows = false;

@@ -21,7 +21,7 @@ namespace VProSTD
     /// [RUN] 탭: 검사 실행 화면
     ///   왼쪽   : 검사 결과 이미지 (CogRecordDisplay)
     ///   오른쪽 : OK/NG, 카운트 카드, AUTO RUN / STOP / RUN ONCE, Log
-    ///   아래   : 검사 결과 표 (CogResultsAnalysisTool 의 출력 항목, 최신이 맨 위)
+    ///   아래   : 검사 결과 표 (CogResultsAnalysisTool 의 Input / Output 항목, 최신이 맨 위)
     /// </summary>
     public partial class RunPage : UserControl
     {
@@ -298,8 +298,8 @@ namespace VProSTD
         #region 결과 표
 
         /// <summary>
-        /// 결과 표 맨 위에 한 줄 추가. 열 = Time, Judge, 출력 항목들.
-        /// 출력 항목이 바뀌면 열을 다시 만든다.
+        /// 결과 표 맨 위에 한 줄 추가. 열 = Time, Judge, CogResultsAnalysisTool 의 Input / Output 항목들.
+        /// 항목이 바뀌면 열을 다시 만든다.
         /// </summary>
         private void AddGridRow(InspectionResult result)
         {

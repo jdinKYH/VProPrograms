@@ -14,7 +14,7 @@ namespace VProSTD
     /// 검사 1회 흐름 (InspectOnce)
     ///   이미지 얻기 (File Mode: 파일 / 아니면: 카메라 취득)
     ///   → ToolBlock.Inputs["InputImage"] 에 넣고 Run()
-    ///   → Outputs["Result"] 로 OK/NG 판정, 카운트, Log, CSV 기록
+    ///   → CogResultsAnalysisTool 판정 (없으면 Outputs["Result"]) 으로 OK/NG, 카운트, Log, CSV 기록
     /// </summary>
     public class VisionApp
     {
@@ -51,6 +51,7 @@ namespace VProSTD
 
         // 예/아니오 확인 창 (MainForm 이 MessageBox 로 연결해 준다)
         public Func<string, bool> Confirm = message => true;
+        public Action<string> Warn = message => { };      // 알림 창 (확인 버튼만). 화면에서 MessageBox 로 연결한다
 
         public VisionApp()
         {
@@ -136,7 +137,8 @@ namespace VProSTD
             SaveSystemQuietly();
 
             WriteLog("RECIPE: '" + name + "' 불러옴");
-            foreach (string problem in Job.CheckContract())
+            List<string> problems = Job.CheckContract(Recipe.ResultsAnalysisToolName);
+            foreach (string problem in problems)
             {
                 WriteLog("RECIPE: " + problem, LogKind.Warning);
             }
@@ -146,6 +148,17 @@ namespace VProSTD
             }
 
             if (RecipeChanged != null) RecipeChanged();
+
+            // 레시피는 불러온 상태로 두고, 검사에 필요한 단자가 없다는 것만 알린다
+            if (problems.Count > 0)
+            {
+                string message = "레시피 '" + name + "' 에 검사에 필요한 항목이 없습니다.\n\n" +
+                                 string.Join("\n", problems.ToArray()) + "\n\n" +
+                                 "이대로는 검사 결과가 ERROR(NG) 로 나옵니다.\n" +
+                                 "RECIPE 탭에서 ToolBlock 에 Inputs \"" + JobRunner.InputImageName + "\" (이미지) 와 " +
+                                 "판정용 CogResultsAnalysisTool 을 추가하고 SAVE 하세요.";
+                Warn(message);
+            }
             return true;
         }
 
@@ -371,6 +384,26 @@ namespace VProSTD
         {
             if (Camera == null) throw new InvalidOperationException("CONNECT 를 먼저 누르세요.");
             return Camera.Grab();
+        }
+
+        /// <summary>
+        /// 고른 이미지 / TRIGGER 이미지를 레시피 ToolBlock 입력에 넣는다 (검사는 하지 않음).
+        /// RECIPE 탭 편집 화면에서 RUN 없이 바로 실행해 볼 수 있게 하기 위해.
+        /// 레시피가 없거나 InputImage 입력이 없으면 아무것도 하지 않는다.
+        /// </summary>
+        public void SetRecipeImage(ICogImage image)
+        {
+            if (Job == null || image == null) return;
+            if (!Job.ToolBlock.Inputs.Contains(JobRunner.InputImageName)) return;
+
+            try
+            {
+                Job.SetInputImage(image, System);
+            }
+            catch (Exception ex)
+            {
+                WriteLog("RECIPE: 입력 이미지를 넣을 수 없습니다 - " + ex.Message, LogKind.Warning);
+            }
         }
 
         #endregion
