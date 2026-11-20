@@ -546,20 +546,55 @@ namespace VProSTD
         /// </summary>
         private void ReleaseCameras()
         {
-            if (!_cameraUsed) return;
+            if (!_cameraUsed)
+            {
+                WriteLogQuietly("CAMERA: 이번 실행에서 카메라를 쓰지 않아 해제할 것 없음", LogKind.Info);
+                return;
+            }
+
+            // 해제를 모두 끝낸 뒤 결과를 로그에 남긴다 (로그 오류가 해제를 막지 않게)
+            int released = 0;
+            List<string> errors = new List<string>();
             try
             {
                 CogFrameGrabbers frameGrabbers = new CogFrameGrabbers();
                 foreach (ICogFrameGrabber frameGrabber in frameGrabbers)
                 {
-                    frameGrabber.Disconnect(false);
+                    try
+                    {
+                        frameGrabber.Disconnect(false);
+                        released++;
+                    }
+                    catch (Exception ex)
+                    {
+                        // [안전] 한 대가 실패해도 나머지 카메라는 계속 해제한다
+                        errors.Add(frameGrabber.Name + " - " + ex.Message);
+                    }
                 }
             }
-            catch
+            catch (Exception ex)
             {
                 // [안전] 해제 중 오류는 무시
+                errors.Add(ex.Message);
             }
             _cameraUsed = false;
+
+            if (errors.Count == 0)
+            {
+                WriteLogQuietly("CAMERA: 해제 완료 (" + released + " 대)", LogKind.Info);
+            }
+            else
+            {
+                WriteLogQuietly("CAMERA: 해제 " + released + " 대, 실패 - " + string.Join(" / ", errors.ToArray()), LogKind.Ng);
+            }
+        }
+
+        /// <summary>
+        /// 종료 중 로그: 화면이 닫히는 중이라 오류가 나도 무시한다.
+        /// </summary>
+        private void WriteLogQuietly(string text, LogKind kind)
+        {
+            try { WriteLog(text, kind); } catch { }
         }
 
         #endregion
