@@ -7,7 +7,7 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 ```
 [이미지 입력]                                  [검사]                                  [결과]
  File Mode 켜짐 → 이미지 파일 / 폴더   ─┐
-                                        ├→ ToolBlock.Inputs["InputImage"] → Run() → Outputs["Result"] → OK/NG, 카운트, Log, CSV, 이미지 저장
+                                        ├→ ToolBlock.Inputs["InputImage"] → Run() → 판정(CogResultsAnalysisTool) → OK/NG, 카운트, Log, CSV, 이미지 저장
  File Mode 꺼짐 → 카메라 취득 (코드로 연결) ─┘
 ```
 
@@ -32,20 +32,46 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 
 - 카메라 설정(CogAcqFifoTool) `.vpp` 는 쓰지 않는다. Recipe Path 에 있어도 목록에 나오지 않는다.
 
-| ToolBlock 단자 | 형식 | 설명 |
-|---|---|---|
-| Inputs `InputImage` | ICogImage (또는 CogImage8Grey) | **필수.** 취득한 이미지가 들어온다. 흑백 입력에 컬러 이미지가 오면 자동으로 흑백 변환 |
-| Outputs `Result` | bool | **필수.** true = OK, false = NG. 실행 오류는 NG 로 센다 |
-| Inputs `PixelX`, `PixelY` | double | 선택. 있으면 SYSTEM 탭 값을 넣어 준다 |
+### 2-1. Job(ToolBlock) 작성 규칙
+
+레시피를 불러올 때 필수 항목(1, 2)이 없으면 경고 창이 뜬다. 이름을 자동으로 맞춰 주지 않으므로 규칙대로 만든다.
+
+**필수**
+
+1. **이미지 입력**: Inputs 에 이름이 정확히 `InputImage` 인 입력 (형식 `ICogImage` 또는 `CogImage8Grey`, 대소문자까지 같게).
+   QuickBuild 에서 가져와 `OutputImage` 등 다른 이름이면 바꾼다. 흑백 입력에 컬러 이미지가 오면 자동으로 흑백 변환한다.
+2. **판정**: 최상위 ToolBlock 바로 안에 CogResultsAnalysisTool. 판정(Decision) Accept = OK, Error = ERROR, 나머지 = NG.
+   - 판정 툴이 여러 개이면 `<이름>.recipe.xml` 의 `ResultsAnalysisToolName` 에 쓸 툴 이름을 적는다.
+   - 판정 툴이 없으면 Outputs `Result` (bool, true = OK) 로 판정한다 (예전 방식, NEW 로 만든 기본 레시피).
+   - 판정 툴 앞의 툴이 Reject/Error 이면 판정 툴이 Accept 여도 NG 로 하고, 결과 표 값은 비운다.
+3. **카메라·I/O 를 넣지 않는다**: AcqFifo·I/O 설정이 들어 있으면 불러오기 전에 경고한다. 카메라는 CONNECT CAMERA 탭에서 연결한다.
+
+**선택**
+
+4. Inputs `PixelX`, `PixelY` (double): 있으면 SYSTEM 탭 값을 넣어 준다.
+5. **RUN 화면 이미지**: `Locate` ToolBlock 안 `CogFixtureTool1` 의 출력 이미지 (Record `Locate.CogFixtureTool1.OutputImage`).
+   없으면 입력 이미지를 보여 준다.
+6. **RUN 결과 표**: 판정 툴의 Input / Output 항목이 열이 된다 (항목 이름 = 열 제목).
+
+**스크립트 작성 요령** (자세한 시험 내용은 `WORKLOG.md` 2026-11-19)
+
+7. 최상위 바로 안의 툴은 실패할 때 **Error 가 아니라 Reject** 를 낸다.
+   Error 가 나면 최상위 ToolBlock 이 뒤의 툴을 실행하지 않아 이전 검사 값이 남는다 (Reject 는 뒤의 툴을 계속 실행한다).
+8. 안쪽 ToolBlock 스크립트는 시작할 때 출력을 0 으로 두고, 툴이 실패하거나 입력 이미지가 없으면 그 자리에서 Reject 로 멈추고,
+   성공했을 때만 출력에 값을 넣는다.
+9. 실패할 수 있는 툴에서 출력 바인딩(링크)을 쓰지 않는다. 바인딩이 실패하면 결과가 Error 로 바뀐다. 출력은 스크립트에서 직접 넣는다.
+
+**저장**
+
+10. VProSTD 의 SAVE 는 Minimum (툴의 마지막 입력·출력 이미지와 결과 제외, 학습 패턴은 남음) 으로 저장한다.
+    QuickBuild 에서 저장할 때도 이미지·결과를 빼고 저장하는 것을 권장한다.
+
+### 2-2. RECIPE 탭
 
 - RECIPE 탭의 목록과 모든 버튼은 SYSTEM 탭의 **Recipe Path** 를 쓴다.
-- RECIPE 탭의 NEW 는 위 필수 단자가 들어 있는 빈 ToolBlock 을 만든다.
+- RECIPE 탭의 NEW 는 Inputs `InputImage` 와 Outputs `Result` 가 들어 있는 빈 ToolBlock 을 만든다.
 - RECIPE 탭의 SAVE 는 Recipe Path 에서 파일 저장 창을 연다. 현재 레시피 파일 = 덮어쓰기, 다른 이름 = 다른 이름으로 저장 후 그 레시피로 바뀜. Recipe Path 밖에는 저장하지 않는다.
 - RECIPE 탭의 DELETE 는 `<이름>.vpp`, `.vpp.bak`, `<이름>.recipe.xml` 만 지운다.
-- 레시피 `.vpp` 에 카메라(AcqFifo)·I/O 설정이 들어 있으면 불러오기 전에 경고한다 (카메라는 CONNECT CAMERA 탭에서 따로 연결하는 것이 원칙).
-- RUN 탭 아래 결과 표는 ToolBlock 안 **CogResultsAnalysisTool 의 Output 항목**(이름 = 열 제목)을 보여 준다.
-  Output 항목의 값은 판정값(Accept/Reject)이다. CogResultsAnalysisTool 이 여러 개이면 `<이름>.recipe.xml` 의 `ResultsAnalysisToolName` 으로 지정한다.
-- RUN 화면의 이미지는 `<이름>.recipe.xml` 의 `DisplayRecordName` Record, 없으면 이미지가 있는 첫 번째 Record, 그것도 없으면 입력 이미지.
 
 ## 3. 카메라 (CONNECT CAMERA 탭)
 
@@ -55,10 +81,12 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 |---|---|
 | SEARCH | 연결된 카메라를 찾아 목록에 넣는다 (저장된 카메라를 골라 둠) |
 | CONNECT | 목록에서 고른 카메라 → 없으면 저장된 카메라 → 없으면 첫 번째 카메라. 연결되면 현재 레시피 노출을 적용 |
-| TRIGGER | 1장 취득해서 보여 줌 (검사 안 함) |
-| 노출 | 바로 카메라에 적용. **레시피별 값**이므로 RECIPE 탭 SAVE 때 `<이름>.recipe.xml` 에 저장된다 |
-| SAVE CAMERA | 연결한 카메라(시리얼, 영상 형식)를 `system.xml` 의 `Camera` 에 저장 |
+| TRIGGER | 1장 취득해서 보여 줌 (검사 안 함). 레시피 입력에도 넣어 RECIPE 탭에서 바로 실행해 볼 수 있음 |
+| LIVE | 한 번 누르면 ON, 다시 누르면 OFF. 계속 취득해서 보여 줌 (ON 중에는 TRIGGER 막음, 다른 탭으로 가면 OFF) |
+| 노출 | 바로 카메라에 적용. **레시피별 값**이므로 SAVE CAMERA 또는 RECIPE 탭 SAVE 때 `<이름>.recipe.xml` 에 저장된다. 연결 전에는 레시피 값(없으면 빈칸)을 보여 줌 |
+| SAVE CAMERA | 연결한 카메라(시리얼, 영상 형식)를 `system.xml` 의 `Camera` 에, 노출을 현재 레시피 `<이름>.recipe.xml` 에 저장 |
 
+- 프로그램을 종료하면 카메라를 해제하고 로그에 `CAMERA: 해제 완료 (n 대)` 를 남긴다.
 - 레시피를 바꿔도 카메라 연결은 유지되고, 새 레시피의 노출이 적용된다 (레시피 노출이 0 이면 카메라 값 유지).
 - 지금은 VisionPro 가 찾는 카메라(GigE)만 지원한다. Euresys CameraLink 에어리어 카메라는 `ICameraSource` 를 구현해서 `VisionApp.OpenCamera` 에 추가한다.
 
