@@ -86,6 +86,9 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 | 노출 | 바로 카메라에 적용. **레시피별 값**이므로 SAVE CAMERA 또는 RECIPE 탭 SAVE 때 `<이름>.recipe.xml` 에 저장된다. 연결 전에는 레시피 값(없으면 빈칸)을 보여 줌 |
 | SAVE CAMERA | 연결한 카메라(시리얼, 영상 형식)를 `system.xml` 의 `Camera` 에, 노출을 현재 레시피 `<이름>.recipe.xml` 에 저장 |
 
+- 프로그램을 시작하면 마지막 레시피를 불러온 뒤 **저장된 카메라(SAVE CAMERA)에 확인 창 없이 자동 연결**한다 (`MainForm_Shown` → `VisionApp.ConnectSavedCamera`).
+  저장된 카메라가 없으면 연결하지 않고, 실패하면 경고 창을 띄운다. 끄려면 `system.xml` 의 `Camera.AutoConnect` 를 `false` 로.
+  카메라 선택·연결 설정은 엔지니어가 CONNECT CAMERA 탭에서 한다.
 - 프로그램을 종료하면 카메라를 해제하고 로그에 `CAMERA: 해제 완료 (n 대)` 를 남긴다.
 - 레시피를 바꿔도 카메라 연결은 유지되고, 새 레시피의 노출이 적용된다 (레시피 노출이 0 이면 카메라 값 유지).
 - 지금은 VisionPro 가 찾는 카메라(GigE)만 지원한다. Euresys CameraLink 에어리어 카메라는 `ICameraSource` 를 구현해서 `VisionApp.OpenCamera` 에 추가한다.
@@ -94,7 +97,7 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 
 | 파일 | 위치 | 내용 |
 |---|---|---|
-| `system.xml` | 실행 파일 옆 (고정) | SYSTEM 탭 값, 마지막 레시피 (다음 실행 때 자동으로 불러옴), 카메라 설정 (`Camera`) |
+| `system.xml` | 실행 파일 옆 (고정) | SYSTEM 탭 값, 마지막 레시피 (다음 실행 때 자동으로 불러옴), 카메라 설정 (`Camera`, 시작 때 자동 연결 `AutoConnect`) |
 | 설정 파일 사본 (`*.xml`) | System Path (SAVE 창에서 고름) | SYSTEM 탭 SAVE 는 고른 파일과 위 system.xml 에 함께 저장, LOAD 는 고른 파일을 화면에 읽어 옴 (SAVE 해야 적용) |
 | `yyyyMMdd_log.txt` | Log Path | 화면 Log 와 같은 내용 |
 | `yyyyMMdd_result.csv` | Log Path | 검사 1회 = 1줄 (Time, Source, Judge, TimeMs, 결과 표 값) |

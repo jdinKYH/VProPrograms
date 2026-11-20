@@ -1,0 +1,12 @@
+{
+  "name": "vprostd-manual-tools",
+  "private": true,
+  "description": "VProSTD 사용자 매뉴얼 변환 (Markdown -> Word, HTML)",
+  "scripts": {
+    "html": "node md2html.js ../VProSTD_사용자_메뉴얼.md ../VProSTD_사용자_메뉴얼.html",
+    "docx": "node md2docx.js ../VProSTD_사용자_메뉴얼.md ../VProSTD_사용자_메뉴얼.docx"
+  },
+  "dependencies": {
+    "docx": "9.5.1"
+  }
+}

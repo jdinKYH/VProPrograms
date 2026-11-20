@@ -128,6 +128,7 @@ namespace VProSTD
         public string Serial = "";                     // 카메라 시리얼. 비우면 첫 번째 카메라
         public string VideoFormat = "";                // 비우면 카메라의 첫 번째 영상 형식
         public int TimeoutMs = 2000;                   // 1장 취득 제한 시간
+        public bool AutoConnect = true;                // 프로그램 시작 때 저장된 카메라(Serial)에 자동 연결. 끄려면 system.xml 에서 false
     }
 
     public static class CameraTypes

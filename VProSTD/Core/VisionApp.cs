@@ -300,6 +300,37 @@ namespace VProSTD
                              "※ 카메라는 이 프로그램을 종료해야 해제됩니다.\n\n계속할까요?";
             if (!Confirm(message)) return;
 
+            OpenAndApply(settings);
+        }
+
+        /// <summary>
+        /// 프로그램 시작 때: system.xml 에 저장된 카메라(SAVE CAMERA)에 확인 창 없이 연결한다.
+        /// 저장된 카메라가 없거나 자동 연결을 껐으면 연결하지 않는다 (false).
+        /// 연결에 실패하면 예외를 그대로 던진다 (부르는 쪽에서 알림).
+        /// </summary>
+        public bool ConnectSavedCamera()
+        {
+            if (!System.Camera.AutoConnect)
+            {
+                WriteLog("CAMERA: 자동 연결 꺼짐 (system.xml Camera.AutoConnect)");
+                return false;
+            }
+            if (string.IsNullOrWhiteSpace(System.Camera.Serial))
+            {
+                WriteLog("CAMERA: 저장된 카메라가 없어 자동 연결하지 않음 (CONNECT CAMERA 탭에서 연결 후 SAVE CAMERA)", LogKind.Warning);
+                return false;
+            }
+
+            WriteLog("CAMERA: 저장된 카메라에 자동 연결 - " + System.Camera.Serial);
+            OpenAndApply(System.Camera);
+            return true;
+        }
+
+        /// <summary>
+        /// 카메라 열기 → 레시피 노출 적용 (CONNECT 버튼과 시작 때 자동 연결이 같이 쓴다)
+        /// </summary>
+        private void OpenAndApply(CameraSettings settings)
+        {
             DisconnectCamera();
 
             _cameraUsed = true;   // 여는 순간 연결되므로 먼저 표시 (종료 시 해제)

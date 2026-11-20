@@ -214,3 +214,16 @@ Reject/Warning → NG 는 시험 레시피가 없어 확인하지 못함. NEW �
   - "CAMERA: 해제 완료 (n 대)" / "CAMERA: 해제 n 대, 실패 - ..." / 카메라를 안 쓴 실행은 "해제할 것 없음"
   - 한 대가 실패해도 나머지는 계속 해제. 로그 쓰기 오류는 무시 (해제를 막지 않게)
 - 장비 PC 확인: Live OFF 종료·Live ON 종료 모두 "해제 완료 (1 대)" (종료 후 약 0.1초), 다시 실행 후 CONNECT 정상
+
+## 2026-11-20 시작 시 저장된 카메라 자동 연결, 사용자 매뉴얼 초안
+
+- 사용자 결정: 시작할 때 저장된 카메라에 연결하는 것을 기본으로, 카메라 선택·연결은 엔지니어 담당
+- MainForm_Shown: 마지막 레시피 불러오기 → VisionApp.ConnectSavedCamera (확인 창 없음, 레시피 노출 적용)
+  - system.xml Camera.Serial 이 비어 있으면 연결하지 않음 (주황 로그), Camera.AutoConnect = false 면 끔 (기본 true, 화면 설정 없음)
+  - 실패하면 빨강 로그 + 경고 창 (작업자가 알 수 있게)
+  - CONNECT 버튼과 같은 열기 함수(OpenAndApply) 사용
+- 매뉴얼: `메뉴얼/VProSTD_사용자_메뉴얼.md` v0.1 (1부 작업자 / 2부 엔지니어 / 3부 문제 해결, 그림 자리만)
+- 매뉴얼 Word 판: `메뉴얼/VProSTD_사용자_메뉴얼.docx` (A4 16쪽, 표지·목차·머리글·쪽 번호). Markdown 을 원본으로 변환 (변환 스크립트는 저장소 밖), 목차는 Word 에서 갱신 후 저장
+- 매뉴얼 HTML 판: `메뉴얼/VProSTD_사용자_메뉴얼.html` (파일 1개, 외부 파일·인터넷 없이 열림). 왼쪽 목차(지금 읽는 장 표시), 검색(Enter 다음 / Shift+Enter 이전, Ctrl+F),
+  좁은 화면은 목차 버튼, 브라우저가 어두운 모드면 어두운 색, 인쇄 시 부마다 새 쪽. Edge 로 넓은 화면·375px·인쇄·검색 확인
+- 변환 스크립트: `메뉴얼/tools/` (md2html.js 는 추가 설치 없음, md2docx.js 는 `npm install` 후). Markdown 이 원본, 고친 뒤 `npm run html` / `npm run docx`

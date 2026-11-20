@@ -51,17 +51,25 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 화면이 뜬 뒤: 마지막으로 쓰던 레시피를 자동으로 불러온다.
+        /// 화면이 뜬 뒤: 마지막으로 쓰던 레시피를 불러오고, 저장된 카메라에 자동으로 연결한다.
+        /// (레시피를 먼저 불러와야 카메라 연결 때 레시피 노출이 적용된다)
         /// </summary>
         private void MainForm_Shown(object sender, EventArgs e)
         {
             app.WriteLog("SYSTEM: Vision Inspection 시작");
 
+            Cursor = Cursors.WaitCursor;
+            LoadLastRecipe();
+            ConnectSavedCamera();
+            Cursor = Cursors.Default;
+        }
+
+        private void LoadLastRecipe()
+        {
             string last = app.System.LastRecipe;
             if (string.IsNullOrEmpty(last)) return;
             if (!RecipeManager.GetNames(app.System.RecipePath).Contains(last)) return;
 
-            Cursor = Cursors.WaitCursor;
             try
             {
                 app.LoadRecipe(last);
@@ -70,7 +78,25 @@ namespace VProSTD
             {
                 app.WriteLog("마지막 레시피를 불러오지 못했습니다: " + ex.Message, LogKind.Ng);
             }
-            Cursor = Cursors.Default;
+        }
+
+        /// <summary>
+        /// 저장된 카메라 자동 연결. 실패하면 작업자가 알 수 있게 창을 띄운다 (연결 설정은 엔지니어 담당).
+        /// </summary>
+        private void ConnectSavedCamera()
+        {
+            try
+            {
+                app.ConnectSavedCamera();
+            }
+            catch (Exception ex)
+            {
+                app.WriteLog("CAMERA: 자동 연결 실패 - " + ex.Message, LogKind.Ng);
+                Cursor = Cursors.Default;
+                WarnMessage("카메라에 자동으로 연결하지 못했습니다.\n" + ex.Message + "\n\n" +
+                            "카메라 전원·케이블을 확인하고, 다른 프로그램(QuickBuild 등)이 카메라를 쓰고 있지 않은지 확인하세요.\n" +
+                            "계속 안 되면 엔지니어에게 알리세요.");
+            }
         }
 
         private bool ConfirmMessage(string message)
