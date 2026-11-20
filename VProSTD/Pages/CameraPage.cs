@@ -11,7 +11,7 @@ namespace VProSTD
     ///   왼쪽   : 취득/불러온 이미지 확인 화면 (CogDisplay)
     ///   오른쪽 : 카메라 모델, SEARCH / 카메라 선택 / CONNECT / TRIGGER / LIVE, 노출, SAVE CAMERA,
     ///            File Mode (Single Image / Image Folder)
-    /// 카메라 설정은 레시피와 따로 system.xml 에 저장한다 (SAVE CAMERA). 노출만 레시피별 (레시피 SAVE).
+    /// 카메라 설정은 레시피와 따로 system.xml 에 저장한다 (SAVE CAMERA). 노출만 레시피별 (SAVE CAMERA 또는 레시피 SAVE 때 레시피 설정에 저장).
     /// </summary>
     public partial class CameraPage : UserControl
     {
@@ -57,7 +57,7 @@ namespace VProSTD
             updating = true;
             chkFileMode.Checked = app.FileMode;
             updating = false;
-            UpdateButtons();
+            UpdateCameraInfo();   // 레시피가 바뀌면 연결 전 노출 표시도 바뀐다
         }
 
         /// <summary>
@@ -72,21 +72,37 @@ namespace VProSTD
             {
                 string saved = app.System.Camera.Serial;
                 lblCameraModel.Text = string.IsNullOrEmpty(saved) ? "..." : "저장: " + saved;
+
+                // 연결 전에는 레시피에 저장된 노출을 보여 준다 (없으면 빈칸). CONNECT 하면 이 값이 카메라에 적용된다
+                if (app.Recipe.ExposureMs > 0) ShowExposure(app.Recipe.ExposureMs);
+                else ShowExposure(null);
             }
             else
             {
                 lblCameraModel.Text = app.Camera.CameraName;
-                double? exposure = app.Camera.Exposure;
-                if (exposure != null)
-                {
-                    decimal value = (decimal)exposure.Value;
-                    if (value < numExposure.Minimum) value = numExposure.Minimum;
-                    if (value > numExposure.Maximum) value = numExposure.Maximum;
-                    numExposure.Value = value;
-                }
+                ShowExposure(app.Camera.Exposure);
             }
             updating = false;
             UpdateButtons();
+        }
+
+        /// <summary>
+        /// 노출 칸에 값 표시. null 이면 빈칸 (화면 초기값이 저장된 값처럼 보이지 않게).
+        /// </summary>
+        private void ShowExposure(double? exposure)
+        {
+            if (exposure == null)
+            {
+                numExposure.Text = "";
+                return;
+            }
+
+            decimal value = (decimal)exposure.Value;
+            if (value < numExposure.Minimum) value = numExposure.Minimum;
+            if (value > numExposure.Maximum) value = numExposure.Maximum;
+            numExposure.Value = value;
+            // 값이 같으면 Value 를 넣어도 글자가 다시 써지지 않으므로 (빈칸이었을 때) 직접 쓴다
+            numExposure.Text = value.ToString("0.00");
         }
 
         /// <summary>
@@ -272,7 +288,7 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 노출을 바꾸면 바로 카메라에 적용한다. 레시피별 값이므로 RECIPE 탭 SAVE 때 레시피 설정에 저장된다.
+        /// 노출을 바꾸면 바로 카메라에 적용한다. 레시피별 값이므로 SAVE CAMERA 또는 RECIPE 탭 SAVE 때 레시피 설정에 저장된다.
         /// </summary>
         private void numExposure_ValueChanged(object sender, EventArgs e)
         {
@@ -289,15 +305,18 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// SAVE CAMERA: 지금 연결된 카메라(시리얼, 영상 형식)를 system.xml 에 저장한다.
+        /// SAVE CAMERA: 지금 연결된 카메라(시리얼, 영상 형식)를 system.xml 에, 노출을 현재 레시피 설정에 저장한다.
         /// </summary>
         private void btnCameraSave_Click(object sender, EventArgs e)
         {
             try
             {
-                app.SaveCameraSettings();
+                double? exposure = app.SaveCameraSettings();
+                string exposureText = exposure != null
+                    ? "노출 " + exposure.Value + " ms → 레시피 '" + app.RecipeName + "' 에 저장"
+                    : "노출은 저장하지 않았습니다 (불러온 레시피가 없음)";
                 MessageBox.Show("카메라 설정을 저장했습니다.\n" + app.Camera.CameraName + "\n" + app.Camera.VideoFormat +
-                                "\n\n(노출은 레시피별이므로 RECIPE 탭에서 SAVE 하세요)", "SAVE CAMERA", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                                "\n\n" + exposureText, "SAVE CAMERA", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
             catch (Exception ex)
             {

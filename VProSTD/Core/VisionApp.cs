@@ -321,8 +321,10 @@ namespace VProSTD
 
         /// <summary>
         /// 지금 연결된 카메라(시리얼, 영상 형식)를 system.xml 에 저장한다. 다음 CONNECT 때 이 카메라를 연다.
+        /// 레시피를 불러왔으면 지금 노출도 레시피 설정(<이름>.recipe.xml)에 저장한다 (.vpp 는 저장하지 않음).
+        /// 돌려주는 값: 레시피에 저장한 노출 (저장하지 않았으면 null)
         /// </summary>
-        public void SaveCameraSettings()
+        public double? SaveCameraSettings()
         {
             if (Camera == null) throw new InvalidOperationException("연결된 카메라가 없습니다. CONNECT 를 먼저 누르세요.");
 
@@ -330,6 +332,14 @@ namespace VProSTD
             System.Camera.VideoFormat = Camera.VideoFormat;
             System.Save();
             WriteLog("CAMERA: 설정 저장 - " + Camera.CameraName + " / " + Camera.VideoFormat);
+
+            double? exposure = Camera.Exposure;
+            if (Job == null || exposure == null) return null;
+
+            Recipe.ExposureMs = exposure.Value;
+            RecipeManager.SaveSettings(RecipeManager.SettingsFileOf(System.RecipePath, RecipeName), Recipe);
+            WriteLog("CAMERA: 노출 " + exposure.Value + " ms 를 레시피 '" + RecipeName + "' 에 저장");
+            return exposure;
         }
 
         /// <summary>
@@ -344,7 +354,7 @@ namespace VProSTD
         }
 
         /// <summary>
-        /// 노출 변경: 카메라에 바로 적용하고, 레시피를 불러왔으면 레시피 노출로 기억한다 (레시피 SAVE 때 저장).
+        /// 노출 변경: 카메라에 바로 적용하고, 레시피를 불러왔으면 레시피 노출로 기억한다 (SAVE CAMERA 또는 레시피 SAVE 때 저장).
         /// </summary>
         public void SetExposure(double exposureMs)
         {

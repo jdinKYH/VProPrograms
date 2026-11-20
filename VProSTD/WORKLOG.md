@@ -189,3 +189,12 @@ Reject/Warning → NG 는 시험 레시피가 없어 확인하지 못함. NEW �
 - 수정: JobRunner.SetInputImage (이미지 + PixelX/PixelY, 흑백 변환), VisionApp.SetRecipeImage.
   CONNECT CAMERA 탭에서 Single Image / Image Folder 고를 때(첫 이미지), TRIGGER 할 때 입력에 넣음. 레시피 로드 때는 넣지 않음 (사용자 결정). Live 는 넣지 않음
 - 확인 (사본): 로드 직후 바로 실행 → "제공된 입력 이미지가 없습니다", SetInputImage 후 바로 실행 → Accept
+
+## 2026-11-20 SAVE CAMERA 노출 저장
+
+- 증상 (장비 PC): 노출 20→10, SAVE CAMERA, 재실행 → 노출 칸 10, CONNECT·LIVE 후 20 으로 돌아감
+- 원인: SAVE CAMERA 는 시리얼·영상 형식만 저장하고 노출은 RECIPE SAVE 때만 저장됨.
+  재실행 때 보인 10 은 노출 칸의 화면 초기값 (저장된 값 아님). CONNECT 하면 카메라 실제 값으로 바뀜 (LIVE 는 노출을 바꾸지 않음)
+- 수정 (사용자 결정): SAVE CAMERA 때 레시피를 불러왔으면 지금 노출을 <이름>.recipe.xml 에도 저장 (.vpp 는 저장 안 함). 노출은 계속 레시피별
+- 연결 전 노출 칸: 레시피 노출(있으면) 표시, 없으면 빈칸. 레시피가 바뀌면 다시 표시
+- 장비 PC 확인 필요: 노출 변경 → SAVE CAMERA → 재실행 → 노출 칸 값 → CONNECT 후 같은 값 유지
