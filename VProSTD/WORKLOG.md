@@ -227,3 +227,10 @@ Reject/Warning → NG 는 시험 레시피가 없어 확인하지 못함. NEW �
 - 매뉴얼 HTML 판: `메뉴얼/VProSTD_사용자_메뉴얼.html` (파일 1개, 외부 파일·인터넷 없이 열림). 왼쪽 목차(지금 읽는 장 표시), 검색(Enter 다음 / Shift+Enter 이전, Ctrl+F),
   좁은 화면은 목차 버튼, 브라우저가 어두운 모드면 어두운 색, 인쇄 시 부마다 새 쪽. Edge 로 넓은 화면·375px·인쇄·검색 확인
 - 변환 스크립트: `메뉴얼/tools/` (md2html.js 는 추가 설치 없음, md2docx.js 는 `npm install` 후). Markdown 이 원본, 고친 뒤 `npm run html` / `npm run docx`
+
+## 2026-11-20 창 옮기기
+
+- 증상: 테두리 없는 창(FormBorderStyle.None, 1920x1080, 위치 0,0) 이라 제목 표시줄이 없어 옮길 수 없음
+- 수정: 타이틀 바(로고·제목·표시등·Recipe·시간 포함)를 끌면 창이 움직임 (WM_NCLBUTTONDOWN + HTCAPTION)
+  - 타이틀 바 더블클릭 = 지금 화면의 왼쪽 위로 되돌리기 (화면 밖으로 밀려났을 때)
+  - MaximizeBox = false: 더블클릭이 Windows 최대화로 바뀌어 창이 고정되지 않게

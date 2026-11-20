@@ -32,6 +32,8 @@ namespace VProSTD
             InitializeComponent();
 
             LoadLogo();
+            EnableTitleDrag(panelTitle);   // 테두리 없는 창이라 타이틀 바를 끌어서 옮길 수 있게 한다
+            MaximizeBox = false;           // 타이틀 바 더블클릭이 Windows "최대화" 로 바뀌지 않게 (최대화되면 옮길 수 없음)
             UpdateClock();
             timerClock.Start();
 
@@ -136,6 +138,43 @@ namespace VProSTD
                 panelTitle.Controls.Add(logoText);
                 picLogo.Visible = false;
             }
+        }
+
+        // 창 옮기기: 마우스를 누른 곳을 Windows 에 "제목 표시줄" 로 알려 주면 Windows 가 창을 옮겨 준다
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool ReleaseCapture();
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+
+        private const int WM_NCLBUTTONDOWN = 0xA1;
+        private const int HTCAPTION = 2;
+
+        /// <summary>
+        /// 타이틀 바(와 그 안의 로고·글자·표시등)를 끌면 창이 움직이게 한다.
+        /// 더블클릭하면 지금 화면의 왼쪽 위로 돌아간다 (화면 밖으로 밀려났을 때).
+        /// </summary>
+        private void EnableTitleDrag(Control control)
+        {
+            control.MouseDown += TitleBar_MouseDown;
+            foreach (Control child in control.Controls)
+            {
+                EnableTitleDrag(child);
+            }
+        }
+
+        private void TitleBar_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button != MouseButtons.Left) return;
+
+            if (e.Clicks == 2)
+            {
+                Location = Screen.FromControl(this).WorkingArea.Location;
+                return;
+            }
+
+            ReleaseCapture();
+            SendMessage(Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
         }
 
         /// <summary>
