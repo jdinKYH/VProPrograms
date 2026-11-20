@@ -27,6 +27,11 @@ namespace VProSTD
 
         public string LastRecipe = "";       // 마지막으로 불러온 레시피 (다음 실행 때 자동으로 불러옴)
 
+        // 엔지니어 모드 비밀번호 (비밀번호 자체가 아니라 계산한 값만 저장, Core/EngineerPassword.cs).
+        // 둘 다 비우면 다음에 엔지니어 탭을 누를 때 새 비밀번호를 정한다 (비밀번호를 잊었을 때)
+        public string EngineerPasswordSalt = "";
+        public string EngineerPasswordHash = "";
+
         public CameraSettings Camera = new CameraSettings();   // CONNECT CAMERA 탭 SAVE 로 저장
 
         /// <summary>

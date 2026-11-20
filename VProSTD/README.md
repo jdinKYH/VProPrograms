@@ -20,6 +20,8 @@ VProEditAll 의 안전 규칙(바이트 확인 후 경고, 안전한 저장, 종
 3. **카메라는 이 프로그램을 종료해야 해제된다.**
 4. 레시피 SAVE 를 하면 이전 파일이 `.bak` 으로 1개 남는다 (저장할 때마다 덮어씀).
 5. AUTO RUN 중에는 탭 이동·레시피 변경·종료가 막힌다. STOP 을 먼저 누른다.
+6. **작업자 / 엔지니어 모드**: 항상 작업자 모드로 시작하고 RUN 탭만 쓸 수 있다. RECIPE / CONNECT CAMERA / SYSTEM 탭은 엔지니어 비밀번호를 넣어야 열린다 (`MainForm.RequestEngineerMode`).
+   비밀번호가 없으면 처음 누를 때 새로 정한다. `system.xml` 에는 계산한 값(Salt, Hash)만 저장한다 (`Core/EngineerPassword.cs`). 잊으면 두 값을 비운다.
 
 ## 2. 레시피 (ToolBlock .vpp 약속)
 
@@ -130,6 +132,7 @@ Cognex 컨트롤(이미지 화면, ToolBlock 편집 화면)은 디자이너에 �
 | 저장: 임시 파일 → 원본과 교체 → .bak | `VppFile.Save` | 저장 실패 시 원본 손상 |
 | 레시피 정리 전 편집 화면 연결 끊기 | `VisionApp.UnloadRecipe` → `RecipePage.OnRecipeUnloading` | 정리 중 오류 |
 | 종료 시 카메라 Disconnect | `VisionApp.ReleaseCameras` | R6025 오류창이 뜨고 멈춤 |
+| 코드에 비밀번호를 넣지 않음, system.xml 에는 Hash 만 | `Core/EngineerPassword.cs` | 공개 저장소에 비밀번호가 드러남 |
 | 편집 화면 툴바의 열기/저장 숨김 | `RecipePage.HideFileButtons` | 백업 없이 저장됨 |
 | 이미지 파일 Close | `FileImageSource.Next` | 파일이 잠긴 채로 남음 |
 

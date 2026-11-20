@@ -36,6 +36,7 @@ namespace VProSTD
             this.btnTabRecipe = new System.Windows.Forms.Button();
             this.btnTabCamera = new System.Windows.Forms.Button();
             this.btnTabSystem = new System.Windows.Forms.Button();
+            this.btnMode = new System.Windows.Forms.Button();
             this.btnExit = new System.Windows.Forms.Button();
             this.panelPage = new System.Windows.Forms.Panel();
             this.panelStatus = new System.Windows.Forms.Panel();
@@ -172,6 +173,7 @@ namespace VProSTD
             this.panelTabs.Controls.Add(this.btnTabRecipe);
             this.panelTabs.Controls.Add(this.btnTabCamera);
             this.panelTabs.Controls.Add(this.btnTabSystem);
+            this.panelTabs.Controls.Add(this.btnMode);
             this.panelTabs.Controls.Add(this.btnExit);
             this.panelTabs.Dock = System.Windows.Forms.DockStyle.Top;
             this.panelTabs.Location = new System.Drawing.Point(0, 90);
@@ -242,6 +244,23 @@ namespace VProSTD
             this.btnTabSystem.Text = "SYSTEM";
             this.btnTabSystem.UseVisualStyleBackColor = false;
             this.btnTabSystem.Click += new System.EventHandler(this.btnTabSystem_Click);
+            //
+            // btnMode : 작업자 / 엔지니어 모드 표시와 전환 (색과 글자는 MainForm.cs 의 SetEngineerMode 에서 바꿈)
+            //
+            this.btnMode.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(47)))), ((int)(((byte)(51)))), ((int)(((byte)(56)))));
+            this.btnMode.FlatAppearance.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(58)))), ((int)(((byte)(64)))), ((int)(((byte)(72)))));
+            this.btnMode.FlatAppearance.MouseDownBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(72)))), ((int)(((byte)(78)))), ((int)(((byte)(86)))));
+            this.btnMode.FlatAppearance.MouseOverBackColor = System.Drawing.Color.FromArgb(((int)(((byte)(60)))), ((int)(((byte)(65)))), ((int)(((byte)(72)))));
+            this.btnMode.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.btnMode.Font = new System.Drawing.Font("맑은 고딕", 13F, System.Drawing.FontStyle.Bold);
+            this.btnMode.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(230)))), ((int)(((byte)(232)))), ((int)(((byte)(235)))));
+            this.btnMode.Location = new System.Drawing.Point(1540, 8);
+            this.btnMode.Name = "btnMode";
+            this.btnMode.Size = new System.Drawing.Size(200, 42);
+            this.btnMode.TabIndex = 5;
+            this.btnMode.Text = "작업자 모드";
+            this.btnMode.UseVisualStyleBackColor = false;
+            this.btnMode.Click += new System.EventHandler(this.btnMode_Click);
             //
             // btnExit
             //
@@ -344,6 +363,7 @@ namespace VProSTD
         private System.Windows.Forms.Button btnTabRecipe;
         private System.Windows.Forms.Button btnTabCamera;
         private System.Windows.Forms.Button btnTabSystem;
+        private System.Windows.Forms.Button btnMode;
         private System.Windows.Forms.Button btnExit;
 
         // 페이지 / 상태줄

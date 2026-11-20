@@ -93,6 +93,10 @@
     <Compile Include="Core\CameraSources.cs" />
     <Compile Include="Core\ResultLogger.cs" />
     <Compile Include="Core\VisionApp.cs" />
+    <Compile Include="Core\EngineerPassword.cs" />
+    <Compile Include="Pages\PasswordForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="Pages\RecipeSelectForm.cs">
       <SubType>Form</SubType>
     </Compile>

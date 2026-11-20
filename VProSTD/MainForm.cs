@@ -47,6 +47,7 @@ namespace VProSTD
 
             CreatePages();
             ShowPage(runPage, btnTabRun);   // 처음에는 RUN 탭
+            SetEngineerMode(false);         // 항상 작업자 모드로 시작
             SetPlcLamp(false);              // PLC 는 아직 연결 기능 없음
 
             this.Shown += MainForm_Shown;
@@ -257,6 +258,12 @@ namespace VProSTD
                 return;
             }
 
+            // 작업자 모드에서는 RUN 탭만. 다른 탭은 엔지니어 모드로 바꾼 뒤에 연다
+            if (page != runPage && !engineerMode)
+            {
+                if (!RequestEngineerMode()) return;
+            }
+
             runPage.Visible = page == runPage;
             recipePage.Visible = page == recipePage;
             cameraPage.Visible = page == cameraPage;
@@ -300,6 +307,106 @@ namespace VProSTD
         private void btnTabSystem_Click(object sender, EventArgs e)
         {
             ShowPage(systemPage, btnTabSystem);
+        }
+
+        #endregion
+
+        #region 작업자 / 엔지니어 모드
+
+        // 작업자 모드: RUN 탭만 쓸 수 있다 (레시피·카메라·설정 변경은 엔지니어 모드에서만).
+        // 프로그램은 항상 작업자 모드로 시작한다.
+        private bool engineerMode;
+
+        /// <summary>
+        /// 엔지니어 비밀번호를 묻는다. 맞으면 엔지니어 모드로 바꾸고 true.
+        /// 비밀번호가 아직 없으면(처음, 또는 system.xml 에서 지웠을 때) 새 비밀번호를 정하게 한다.
+        /// </summary>
+        private bool RequestEngineerMode()
+        {
+            if (!EngineerPassword.IsSet(app.System))
+            {
+                string newPassword = PasswordForm.AskNewPassword(this);
+                if (newPassword == null) return false;
+
+                try
+                {
+                    EngineerPassword.Set(app.System, newPassword);
+                    app.System.Save();
+                }
+                catch (Exception ex)
+                {
+                    // 저장하지 못했으면 다음 실행 때 다시 정해야 하므로 알린다 (이번에는 엔지니어 모드로 들어감)
+                    app.WriteLog("SYSTEM: 엔지니어 비밀번호 저장 실패 - " + ex.Message, LogKind.Ng);
+                    MessageBox.Show("비밀번호를 system.xml 에 저장하지 못했습니다:\n" + ex.Message, "엔지니어 비밀번호",
+                                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                app.WriteLog("SYSTEM: 엔지니어 비밀번호를 새로 정함");
+                SetEngineerMode(true);
+                return true;
+            }
+
+            string password = PasswordForm.AskPassword(this);
+            if (password == null) return false;
+
+            if (!EngineerPassword.Check(app.System, password))
+            {
+                app.WriteLog("SYSTEM: 엔지니어 비밀번호 틀림", LogKind.Warning);
+                MessageBox.Show("비밀번호가 맞지 않습니다.", "엔지니어 모드", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return false;
+            }
+
+            SetEngineerMode(true);
+            return true;
+        }
+
+        /// <summary>
+        /// 모드 버튼과 잠긴 탭 표시를 바꾼다.
+        /// </summary>
+        private void SetEngineerMode(bool on)
+        {
+            bool changed = engineerMode != on;
+            engineerMode = on;
+
+            if (on)
+            {
+                btnMode.Text = "엔지니어 모드";
+                btnMode.BackColor = Theme.Amber;
+                btnMode.ForeColor = Theme.Background;
+                btnMode.FlatAppearance.BorderColor = Theme.Amber;
+                btnMode.FlatAppearance.MouseOverBackColor = Theme.Amber;
+            }
+            else
+            {
+                btnMode.Text = "작업자 모드";
+                btnMode.BackColor = Theme.Button;
+                btnMode.ForeColor = Theme.Text;
+                btnMode.FlatAppearance.BorderColor = Theme.Border;
+                btnMode.FlatAppearance.MouseOverBackColor = Theme.ButtonHover;
+            }
+
+            // 작업자 모드에서는 잠긴 탭 글자를 흐리게 (누르면 엔지니어 모드 확인 창이 뜸)
+            Color tabText = on ? Theme.Text : Theme.SubText;
+            btnTabRecipe.ForeColor = tabText;
+            btnTabCamera.ForeColor = tabText;
+            btnTabSystem.ForeColor = tabText;
+
+            if (changed) app.WriteLog(on ? "SYSTEM: 엔지니어 모드" : "SYSTEM: 작업자 모드");
+        }
+
+        /// <summary>
+        /// 모드 버튼: 작업자 → 엔지니어 (확인), 엔지니어 → 작업자 (RUN 탭으로 이동)
+        /// </summary>
+        private void btnMode_Click(object sender, EventArgs e)
+        {
+            if (engineerMode)
+            {
+                SetEngineerMode(false);
+                ShowPage(runPage, btnTabRun);
+            }
+            else
+            {
+                RequestEngineerMode();
+            }
         }
 
         #endregion
