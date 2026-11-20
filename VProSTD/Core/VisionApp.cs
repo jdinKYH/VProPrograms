@@ -188,7 +188,8 @@ namespace VProSTD
         {
             if (Job == null) throw new InvalidOperationException("불러온 레시피가 없습니다.");
 
-            VppFile.Save(Job.ToolBlock, Job.FilePath, false);
+            // Minimum: 툴의 마지막 입력·출력 이미지와 결과는 빼고 저장 (학습 패턴은 남음, 파일이 약 1/3)
+            VppFile.Save(Job.ToolBlock, Job.FilePath, true);
 
             Recipe.LastImagePath = Files.SourcePath ?? "";
             RecipeManager.SaveSettings(RecipeManager.SettingsFileOf(System.RecipePath, RecipeName), Recipe);
